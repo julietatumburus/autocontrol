@@ -1,0 +1,41 @@
+# ─────────────────────────────────────────────────────────────
+# Autocontrol — entorno local
+#   docker compose up -d db        → solo Postgres (para `npm run dev`)
+#   docker compose --profile full up --build  → app + Postgres juntos
+# ─────────────────────────────────────────────────────────────
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: autocontrol
+      POSTGRES_PASSWORD: autocontrol
+      POSTGRES_DB: autocontrol
+    ports:
+      - "5432:5432"
+    volumes:
+      - autocontrol_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autocontrol"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    profiles: ["full"]
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://autocontrol:autocontrol@db:5432/autocontrol?schema=public"
+      AUTH_SECRET: "dev-secret-cambialo-en-produccion"
+      AUTH_TRUST_HOST: "true"
+      NEXTAUTH_URL: "http://localhost:3000"
+      SEED_ON_START: "true"
+    ports:
+      - "3000:3000"
+
+volumes:
+  autocontrol_pgdata:

@@ -1,0 +1,429 @@
+// ─────────────────────────────────────────────────────────────
+// Autocontrol — Esquema de base de datos (PostgreSQL)
+// Plataforma multi-taller de seguimiento de reparaciones.
+// ─────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────── Enums ───────────────────────────
+
+/// Tipo de cuenta global del usuario.
+enum UserRole {
+  SUPER_ADMIN // dueño de la plataforma (vos)
+  TALLER // staff de un taller (el rol fino ADMIN/EMPLEADO está en TallerMember)
+  CLIENTE // quien deja su auto
+}
+
+/// Rol del usuario dentro de un taller concreto.
+enum TallerRole {
+  ADMIN // dueño/administrador del taller
+  EMPLEADO // personal operativo
+}
+
+/// Estado de alta de un taller en la plataforma.
+enum TallerEstado {
+  PENDIENTE // registrado, esperando aprobación del super admin
+  ACTIVO
+  SUSPENDIDO
+}
+
+/// Ciclo de vida de alto nivel de una orden de trabajo.
+enum OrdenEstado {
+  ABIERTA // en proceso, recorriendo etapas
+  LISTA // terminó las etapas: listo para retirar (dispara aviso + costo)
+  PAGADA // pago registrado en el taller
+  ENTREGADA // auto entregado, orden cerrada
+  CANCELADA
+}
+
+/// Tipo de ítem aplicado a una orden.
+enum ItemTipo {
+  REPUESTO
+  PRODUCTO
+  MANO_OBRA
+}
+
+/// Medio de pago registrado por el taller.
+enum MetodoPago {
+  EFECTIVO
+  TRANSFERENCIA
+  TARJETA
+  OTRO
+}
+
+/// Estado de un presupuesto enviado al cliente para aprobación.
+enum PresupuestoEstado {
+  ENVIADO
+  APROBADO
+  RECHAZADO
+}
+
+/// Tipo de turno que se agenda con el taller.
+enum TurnoTipo {
+  PRESUPUESTO
+  VISITA
+}
+
+/// Estado de un turno agendado.
+enum TurnoEstado {
+  SOLICITADO
+  CONFIRMADO
+  CANCELADO
+  COMPLETADO
+}
+
+/// Tipo de notificación enviada al cliente.
+enum NotificacionTipo {
+  ORDEN_CREADA
+  ETAPA_ACTUALIZADA
+  ORDEN_LISTA
+  PAGO_REGISTRADO
+  COMPROBANTE_EMITIDO
+  PRESUPUESTO_ENVIADO
+  PRESUPUESTO_APROBADO
+  PRESUPUESTO_RECHAZADO
+  MENSAJE_NUEVO
+  TURNO_CREADO
+  TURNO_RECORDATORIO
+  GENERAL
+}
+
+// ─────────────────────────── Modelos ─────────────────────────
+
+/// Identidad de cualquier persona en la plataforma.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  nombre       String
+  telefono     String?
+  role         UserRole @default(CLIENTE)
+  creadoEn     DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  // Relaciones
+  membresias       TallerMember[] // si es staff de uno o más talleres
+  vehiculos        Vehiculo[] // si es cliente
+  ordenesComoCliente OrdenDeTrabajo[] @relation("OrdenCliente")
+  accionesEtapa    OrdenEtapa[] @relation("EtapaRegistradaPor")
+  itemsRegistrados ItemAplicado[] @relation("ItemRegistradoPor")
+  pagosRegistrados Pago[] @relation("PagoRegistradoPor")
+  ordenesCreadas   OrdenDeTrabajo[] @relation("OrdenCreadaPor")
+  notificaciones   Notificacion[]
+  presupuestosEnviados Presupuesto[] @relation("PresupuestoEnviadoPor")
+  mensajes         Mensaje[] @relation("MensajeAutor")
+  turnos           Turno[] @relation("TurnoCliente")
+
+  @@index([role])
+}
+
+/// Un taller: el "inquilino" (tenant) de la plataforma.
+model Taller {
+  id          String       @id @default(cuid())
+  slug        String       @unique // para la URL pública /talleres/[slug]
+  nombre      String
+  descripcion String?
+  logoUrl     String?
+  direccion   String?
+  telefono    String?
+  email       String?
+  estado      TallerEstado @default(PENDIENTE)
+  creadoEn    DateTime     @default(now())
+  actualizadoEn DateTime   @updatedAt
+
+  // Configuración de agenda de turnos
+  agendaActiva      Boolean @default(true)
+  agendaApertura    String  @default("09:00") // HH:MM
+  agendaCierre      String  @default("18:00") // HH:MM
+  agendaDuracionMin Int     @default(30)
+  agendaDias        Int[]   @default([1, 2, 3, 4, 5]) // 0=Dom .. 6=Sáb
+
+  // Garantía sobre el trabajo entregado (configurable por taller)
+  garantiaActiva Boolean @default(false)
+  garantiaMeses  Int     @default(12)
+
+  // Relaciones
+  miembros  TallerMember[]
+  servicios Servicio[]
+  etapas    EtapaCatalogo[]
+  ordenes   OrdenDeTrabajo[]
+  turnos    Turno[]
+
+  @@index([estado])
+}
+
+/// Vincula un User (staff) con un Taller y su rol interno.
+model TallerMember {
+  id       String     @id @default(cuid())
+  userId   String
+  tallerId String
+  role     TallerRole @default(EMPLEADO)
+  creadoEn DateTime   @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taller Taller @relation(fields: [tallerId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tallerId])
+  @@index([tallerId])
+}
+
+/// Servicio que ofrece un taller (se muestra en su perfil público).
+model Servicio {
+  id          String  @id @default(cuid())
+  tallerId    String
+  nombre      String
+  descripcion String?
+  precioDesde Decimal? @db.Decimal(12, 2)
+
+  taller Taller @relation(fields: [tallerId], references: [id], onDelete: Cascade)
+
+  @@index([tallerId])
+}
+
+/// Etapas configurables por taller (el "camino" que recorre la reparación).
+model EtapaCatalogo {
+  id       String  @id @default(cuid())
+  tallerId String
+  nombre   String
+  orden    Int // posición en el flujo (1, 2, 3, ...)
+  color    String  @default("#3b82f6")
+  esFinal  Boolean @default(false) // marca la etapa que deja la orden "LISTA"
+
+  taller       Taller         @relation(fields: [tallerId], references: [id], onDelete: Cascade)
+  ordenesEtapa OrdenEtapa[]
+  ordenesActual OrdenDeTrabajo[] @relation("EtapaActual")
+
+  @@unique([tallerId, orden])
+  @@index([tallerId])
+}
+
+/// Vehículo de un cliente.
+model Vehiculo {
+  id        String  @id @default(cuid())
+  clienteId String
+  marca     String
+  modelo    String
+  anio      Int?
+  patente   String
+  color     String?
+  creadoEn  DateTime @default(now())
+
+  cliente User             @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  ordenes OrdenDeTrabajo[]
+
+  @@index([clienteId])
+  @@index([patente])
+}
+
+/// ⭐ Orden de trabajo: entidad central del seguimiento.
+model OrdenDeTrabajo {
+  id                 String      @id @default(cuid())
+  numero             Int         @default(autoincrement()) // número legible para el cliente
+  tallerId           String
+  vehiculoId         String
+  clienteId          String
+  estado             OrdenEstado @default(ABIERTA)
+  etapaActualId      String?
+  descripcionProblema String?
+  total              Decimal     @default(0) @db.Decimal(12, 2) // costo acumulado de ítems
+  creadoPorId        String? // empleado que la abrió
+  creadoEn           DateTime    @default(now())
+  actualizadoEn      DateTime    @updatedAt
+  listaEn            DateTime? // cuándo pasó a LISTA
+  entregadaEn        DateTime?
+  vistoClienteEn     DateTime? // última vez que el cliente abrió la orden
+  vistoTallerEn      DateTime? // última vez que el taller abrió la orden
+
+  taller      Taller         @relation(fields: [tallerId], references: [id], onDelete: Cascade)
+  vehiculo    Vehiculo       @relation(fields: [vehiculoId], references: [id])
+  cliente     User           @relation("OrdenCliente", fields: [clienteId], references: [id])
+  etapaActual EtapaCatalogo? @relation("EtapaActual", fields: [etapaActualId], references: [id])
+  creadoPor   User?          @relation("OrdenCreadaPor", fields: [creadoPorId], references: [id])
+
+  timeline      OrdenEtapa[]
+  items         ItemAplicado[]
+  pagos         Pago[]
+  comprobantes  Comprobante[]
+  notificaciones Notificacion[]
+  presupuestos  Presupuesto[]
+  mensajes      Mensaje[]
+  fotos         OrdenFoto[]
+
+  @@index([tallerId, estado])
+  @@index([clienteId])
+}
+
+/// Historial/timeline: cada paso de la orden por una etapa (la "evolución").
+model OrdenEtapa {
+  id              String   @id @default(cuid())
+  ordenId         String
+  etapaCatalogoId String?
+  nombre          String // snapshot del nombre de la etapa
+  nota            String?
+  ingresoEn       DateTime @default(now())
+  salidaEn        DateTime?
+  registradoPorId String?
+
+  orden         OrdenDeTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  etapaCatalogo EtapaCatalogo? @relation(fields: [etapaCatalogoId], references: [id])
+  registradoPor User?          @relation("EtapaRegistradaPor", fields: [registradoPorId], references: [id])
+  items         ItemAplicado[]
+
+  @@index([ordenId])
+}
+
+/// Repuesto / producto / mano de obra aplicado a una orden.
+model ItemAplicado {
+  id              String   @id @default(cuid())
+  ordenId         String
+  ordenEtapaId    String? // en qué etapa se aplicó
+  tipo            ItemTipo @default(REPUESTO)
+  nombre          String
+  cantidad        Decimal  @default(1) @db.Decimal(12, 2)
+  precioUnitario  Decimal  @default(0) @db.Decimal(12, 2)
+  registradoPorId String?
+  creadoEn        DateTime @default(now())
+
+  orden         OrdenDeTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  ordenEtapa    OrdenEtapa?    @relation(fields: [ordenEtapaId], references: [id])
+  registradoPor User?          @relation("ItemRegistradoPor", fields: [registradoPorId], references: [id])
+
+  @@index([ordenId])
+}
+
+/// Pago registrado por el taller (registro manual).
+model Pago {
+  id              String     @id @default(cuid())
+  ordenId         String
+  monto           Decimal    @db.Decimal(12, 2)
+  metodo          MetodoPago @default(EFECTIVO)
+  nota            String?
+  registradoPorId String?
+  pagadoEn        DateTime   @default(now())
+
+  orden         OrdenDeTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  registradoPor User?          @relation("PagoRegistradoPor", fields: [registradoPorId], references: [id])
+  comprobante   Comprobante?
+
+  @@index([ordenId])
+}
+
+/// Comprobante / detalle de servicio emitido tras el pago.
+model Comprobante {
+  id         String   @id @default(cuid())
+  ordenId    String
+  pagoId     String   @unique
+  numero     String   @unique // ej: AC-0001
+  total      Decimal  @db.Decimal(12, 2)
+  detalle    Json // snapshot de ítems, vehículo, taller y cliente
+  emitidoEn  DateTime @default(now())
+
+  orden OrdenDeTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  pago  Pago           @relation(fields: [pagoId], references: [id], onDelete: Cascade)
+
+  @@index([ordenId])
+}
+
+/// Notificación in-app al cliente (también puede dispararse por email).
+model Notificacion {
+  id           String           @id @default(cuid())
+  userId       String // destinatario (cliente)
+  ordenId      String?
+  tipo         NotificacionTipo @default(GENERAL)
+  titulo       String
+  mensaje      String
+  leidaEn      DateTime?
+  emailEnviado Boolean          @default(false)
+  creadoEn     DateTime         @default(now())
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orden OrdenDeTrabajo? @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+
+  @@index([userId, leidaEn])
+}
+
+/// Presupuesto formal enviado al cliente para su aprobación.
+/// Al aprobarse funciona como contrato (firmas = nombres + fecha).
+model Presupuesto {
+  id            String            @id @default(cuid())
+  numero        String            @unique // ej: PR-0001
+  ordenId       String
+  estado        PresupuestoEstado @default(ENVIADO)
+  total         Decimal           @db.Decimal(12, 2)
+  detalle       Json // snapshot de ítems + datos al momento de enviar
+  nota          String? // nota del taller al enviar
+  motivoRechazo String?
+  // "Firmas" (snapshots de nombres al momento de la respuesta)
+  clienteNombre String
+  tallerNombre  String
+  enviadoPorId  String?
+  enviadoEn     DateTime          @default(now())
+  respondidoEn  DateTime?
+
+  orden      OrdenDeTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  enviadoPor User?          @relation("PresupuestoEnviadoPor", fields: [enviadoPorId], references: [id])
+
+  @@index([ordenId])
+}
+
+/// Mensaje del hilo de conversación de una orden (taller ↔ cliente).
+model Mensaje {
+  id       String   @id @default(cuid())
+  ordenId  String
+  autorId  String
+  cuerpo   String
+  creadoEn DateTime @default(now())
+
+  orden OrdenDeTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  autor User           @relation("MensajeAutor", fields: [autorId], references: [id])
+
+  @@index([ordenId, creadoEn])
+}
+
+/// Foto del avance de una reparación (la sube el taller, la ve el cliente).
+model OrdenFoto {
+  id          String   @id @default(cuid())
+  ordenId     String
+  url         String // data URL de la imagen
+  descripcion String?
+  etapaNombre String? // snapshot de la etapa al subir la foto
+  creadoEn    DateTime @default(now())
+
+  orden OrdenDeTrabajo @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+
+  @@index([ordenId, creadoEn])
+}
+
+/// Turno agendado con el taller (presupuesto o visita).
+/// Lo puede sacar un cliente registrado o uno no registrado (con su email).
+model Turno {
+  id          String      @id @default(cuid())
+  tallerId    String
+  clienteId   String? // si el que saca el turno está registrado
+  tipo        TurnoTipo   @default(PRESUPUESTO)
+  estado      TurnoEstado @default(SOLICITADO)
+  fechaHora   DateTime
+  duracionMin Int         @default(30)
+  // Datos de contacto (snapshot, sirven para registrados y no registrados)
+  nombre   String
+  email    String
+  telefono String?
+  vehiculo String? // descripción del vehículo
+  motivo   String?
+  recordatorioEnviado Boolean  @default(false)
+  creadoEn            DateTime @default(now())
+
+  taller  Taller @relation(fields: [tallerId], references: [id], onDelete: Cascade)
+  cliente User?  @relation("TurnoCliente", fields: [clienteId], references: [id], onDelete: SetNull)
+
+  @@index([tallerId, fechaHora])
+  @@index([clienteId])
+  @@index([estado, recordatorioEnviado])
+}
