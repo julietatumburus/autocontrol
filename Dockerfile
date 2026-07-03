@@ -9,6 +9,8 @@ WORKDIR /app
 # ── Dependencias ──
 FROM base AS deps
 COPY package.json package-lock.json* ./
+# El postinstall corre `prisma generate`, que necesita el schema presente.
+COPY prisma ./prisma
 RUN npm ci
 
 # ── Build ──
