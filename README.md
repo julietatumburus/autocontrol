@@ -82,17 +82,19 @@ Esto levanta Postgres y la app (con `SEED_ON_START=true` para cargar los datos d
    AUTH_TRUST_HOST=true
    NEXTAUTH_URL=https://tu-dominio.com
    SUPER_ADMIN_EMAIL=tu-email@dominio.com
+   SUPER_ADMIN_PASSWORD=una-contraseña-fuerte   # opcional; default: autocontrol123
    # SMTP (opcional, para emails reales)
    SMTP_HOST=...
    SMTP_PORT=587
    SMTP_USER=...
    SMTP_PASSWORD=...
    SMTP_FROM=Autocontrol <no-reply@tu-dominio.com>
-   # Solo en el PRIMER deploy, para cargar datos demo:
+   # Solo en el PRIMER deploy, para crear tu super admin:
    # SEED_ON_START=true
+   # SEED_DEMO=true   # (opcional) además carga talleres/órdenes demo
    ```
 4. **Deploy.** Al arrancar, el contenedor aplica el esquema (`prisma db push`) y levanta Next.js en el puerto **3000** (mapealo a tu dominio).
-5. Para crear tu **super admin**, poné `SEED_ON_START=true` en el primer deploy (crea `admin@autocontrol.app` / `autocontrol123` — cambiá la contraseña luego) o seteá `SUPER_ADMIN_EMAIL` con tu email.
+5. Para crear tu **super admin**, poné `SEED_ON_START=true` en el primer deploy. Por defecto crea **solo tu cuenta** de super admin (`SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD`, o `autocontrol123` si no la definís). Quitá `SEED_ON_START` en los siguientes deploys. Si además querés los datos demo, sumá `SEED_DEMO=true`.
 
 > **Nota de producción:** el arranque usa `prisma db push` (sincroniza el esquema sin historial de migraciones), ideal para el MVP. Cuando el modelo se estabilice, conviene pasar a migraciones (`prisma migrate`) y cambiar el entrypoint a `prisma migrate deploy`.
 
