@@ -1,0 +1,4 @@
+# Forzar LF en scripts de shell y entrypoints (evita que Windows los rompa
+# al meter CRLF, lo que hace fallar el arranque del contenedor Linux).
+*.sh text eol=lf
+docker-entrypoint.sh text eol=lf
