@@ -120,8 +120,23 @@ model User {
   presupuestosEnviados Presupuesto[] @relation("PresupuestoEnviadoPor")
   mensajes         Mensaje[] @relation("MensajeAutor")
   turnos           Turno[] @relation("TurnoCliente")
+  resetTokens      PasswordResetToken[]
 
   @@index([role])
+}
+
+/// Token para recuperación de contraseña (se guarda hasheado).
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiraEn  DateTime
+  usadoEn   DateTime?
+  creadoEn  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 /// Un taller: el "inquilino" (tenant) de la plataforma.

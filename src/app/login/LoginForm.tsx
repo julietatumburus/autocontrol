@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import { autenticar, type ActionState } from "@/lib/actions/auth";
@@ -21,7 +22,15 @@ export default function LoginForm() {
         <Input id="email" name="email" type="email" required autoComplete="email" />
       </div>
       <div>
-        <Label htmlFor="password">Contraseña</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password">Contraseña</Label>
+          <Link
+            href="/recuperar"
+            className="mb-1 text-xs font-medium text-brand-600 hover:underline"
+          >
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </div>
         <Input
           id="password"
           name="password"
