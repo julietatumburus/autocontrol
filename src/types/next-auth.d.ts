@@ -9,6 +9,10 @@ declare module "next-auth" {
       role: UserRole;
       nombre: string;
     } & DefaultSession["user"];
+    /** Está el super admin viendo como otro usuario */
+    impersonating?: boolean;
+    /** Nombre del super admin real (mientras impersona) */
+    actorNombre?: string;
   }
 
   interface User {
@@ -22,5 +26,9 @@ declare module "next-auth/jwt" {
     id: string;
     role: UserRole;
     nombre: string;
+    // Impersonación
+    impersonating?: boolean;
+    actorId?: string;
+    actorNombre?: string;
   }
 }

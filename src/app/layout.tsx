@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import PWARegister from "@/components/PWARegister";
 import InstallPWA from "@/components/InstallPWA";
+import ImpersonationBanner from "@/components/ImpersonationBanner";
 
 export const metadata: Metadata = {
   title: "Autocontrol — Seguí la reparación de tu auto",
@@ -37,6 +38,7 @@ export default function RootLayout({
         {children}
         <PWARegister />
         <InstallPWA />
+        <ImpersonationBanner />
       </body>
     </html>
   );

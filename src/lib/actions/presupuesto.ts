@@ -71,8 +71,12 @@ export async function enviarPresupuesto(
   }
 
   await prisma.$transaction(async (tx) => {
-    const count = await tx.presupuesto.count();
-    const numero = `PR-${String(count + 1).padStart(4, "0")}`;
+    // Numeración por taller (no expone el total global de la plataforma)
+    const seq = await tx.presupuesto.count({
+      where: { orden: { tallerId: orden.tallerId } },
+    });
+    const code = orden.tallerId.slice(-5).toUpperCase();
+    const numero = `PR-${code}-${String(seq + 1).padStart(4, "0")}`;
 
     await tx.presupuesto.create({
       data: {

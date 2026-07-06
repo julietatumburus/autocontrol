@@ -33,6 +33,20 @@ export default async function AdminLayout({
             </button>
           </form>
         </div>
+        <div className="mx-auto flex max-w-6xl gap-1 px-4 pb-2">
+          <Link
+            href="/admin"
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-300 hover:bg-white/10"
+          >
+            Talleres
+          </Link>
+          <Link
+            href="/admin/clientes"
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-300 hover:bg-white/10"
+          >
+            Clientes
+          </Link>
+        </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
     </div>

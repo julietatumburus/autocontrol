@@ -310,9 +310,12 @@ export async function registrarPago(
       },
     });
 
-    // Número de comprobante secuencial global: AC-0001
-    const count = await tx.comprobante.count();
-    numeroComprobante = `AC-${String(count + 1).padStart(4, "0")}`;
+    // Numeración por taller (no expone el total global de la plataforma)
+    const seq = await tx.comprobante.count({
+      where: { orden: { tallerId: orden.tallerId } },
+    });
+    const code = orden.tallerId.slice(-5).toUpperCase();
+    numeroComprobante = `AC-${code}-${String(seq + 1).padStart(4, "0")}`;
 
     await tx.comprobante.create({
       data: {
