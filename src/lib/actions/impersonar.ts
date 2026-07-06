@@ -22,7 +22,6 @@ export async function impersonar(targetUserId: string): Promise<void> {
     `[IMPERSONATE] ${session.user.nombre} (${session.user.id}) → ${target.nombre} (${target.email}) @ ${new Date().toISOString()}`,
   );
 
-  // @ts-expect-error el update pasa datos arbitrarios al jwt callback
   await unstable_update({
     impersonate: { id: target.id, role: target.role, nombre: target.nombre },
   });
@@ -44,7 +43,6 @@ export async function dejarDeImpersonar(): Promise<void> {
   }
   console.log(`[IMPERSONATE] fin de impersonación @ ${new Date().toISOString()}`);
 
-  // @ts-expect-error el update pasa datos arbitrarios al jwt callback
   await unstable_update({ stopImpersonate: true });
   redirect("/admin/clientes");
 }

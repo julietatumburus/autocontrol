@@ -13,6 +13,10 @@ declare module "next-auth" {
     impersonating?: boolean;
     /** Nombre del super admin real (mientras impersona) */
     actorNombre?: string;
+    /** Payload para iniciar impersonación (solo se usa en unstable_update) */
+    impersonate?: { id: string; role: UserRole; nombre: string };
+    /** Señal para terminar la impersonación (solo se usa en unstable_update) */
+    stopImpersonate?: boolean;
   }
 
   interface User {
