@@ -71,7 +71,7 @@ export async function crearOrden(
 
   let mensaje: string | undefined;
 
-  await prisma.$transaction(async (tx) => {
+  const nueva = await prisma.$transaction(async (tx) => {
     // Cliente: lo busca por email; si no existe, lo crea con clave temporal.
     let cliente = await tx.user.findUnique({
       where: { email: d.clienteEmail.toLowerCase() },
@@ -120,13 +120,17 @@ export async function crearOrden(
       },
     });
 
-    await notificarCliente({
-      userId: cliente.id,
-      ordenId: orden.id,
-      tipo: "ORDEN_CREADA",
-      titulo: "Tu orden fue creada",
-      mensaje: `Tu ${d.marca} ${d.modelo} ingresó al taller. Ya podés seguir la reparación desde Autocontrol.`,
-    });
+    return { ordenId: orden.id, clienteId: cliente.id };
+  });
+
+  // El aviso (in-app + email) va FUERA de la transacción: una demora o fallo
+  // del SMTP no debe abortar la creación de la orden (timeout de transacción).
+  await notificarCliente({
+    userId: nueva.clienteId,
+    ordenId: nueva.ordenId,
+    tipo: "ORDEN_CREADA",
+    titulo: "Tu orden fue creada",
+    mensaje: `Tu ${d.marca} ${d.modelo} ingresó al taller. Ya podés seguir la reparación desde Autocontrol.`,
   });
 
   revalidatePath("/panel/ordenes");

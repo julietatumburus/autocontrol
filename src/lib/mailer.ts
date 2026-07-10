@@ -14,6 +14,10 @@ function getTransporter() {
           pass: process.env.SMTP_PASSWORD,
         }
       : undefined,
+    // Evita que un SMTP lento/caído deje la petición colgada indefinidamente.
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
   });
 }
 
