@@ -4,20 +4,9 @@ import { Card, Badge } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 import { impersonar } from "@/lib/actions/impersonar";
 import UsuarioAcciones from "./UsuarioAcciones";
-import CambiarRol from "./CambiarRol";
+import SuperAdminToggle from "./SuperAdminToggle";
 
 export const dynamic = "force-dynamic";
-
-const ROL_LABEL: Record<string, string> = {
-  CLIENTE: "Cliente",
-  TALLER: "Taller",
-  SUPER_ADMIN: "Super admin",
-};
-const ROL_COLOR: Record<string, string> = {
-  CLIENTE: "bg-slate-100 text-slate-600",
-  TALLER: "bg-blue-50 text-blue-700",
-  SUPER_ADMIN: "bg-purple-100 text-purple-700",
-};
 
 export default async function UsuariosPage() {
   const session = await auth();
@@ -29,7 +18,11 @@ export default async function UsuariosPage() {
       role: true,
       activo: true,
       creadoEn: true,
-      _count: { select: { ordenesComoCliente: true, membresias: true } },
+      _count: { select: { ordenesComoCliente: true } },
+      membresias: {
+        where: { role: "ADMIN" },
+        select: { taller: { select: { nombre: true } } },
+      },
     },
     orderBy: [{ role: "asc" }, { creadoEn: "desc" }],
   });
@@ -41,8 +34,8 @@ export default async function UsuariosPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Usuarios</h1>
         <p className="text-sm text-slate-500">
-          Todas las cuentas registradas. Podés entrar como cualquiera para dar
-          soporte, o dar de baja una cuenta ante irregularidades.
+          Todas las cuentas. Un usuario es cliente por defecto y, si tiene un
+          taller, es su administrador. El super admin gestiona la plataforma.
         </p>
       </div>
 
@@ -65,7 +58,7 @@ export default async function UsuariosPage() {
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
               <tr>
                 <th className="px-5 py-3">Usuario</th>
-                <th className="px-5 py-3">Rol</th>
+                <th className="px-5 py-3">Tipo</th>
                 <th className="px-5 py-3">Actividad</th>
                 <th className="px-5 py-3">Alta</th>
                 <th className="px-5 py-3">Estado</th>
@@ -76,6 +69,7 @@ export default async function UsuariosPage() {
               {usuarios.map((u) => {
                 const esYo = u.id === session?.user?.id;
                 const esSuper = u.role === "SUPER_ADMIN";
+                const talleres = u.membresias.map((m) => m.taller.nombre);
                 return (
                   <tr key={u.id} className={u.activo ? "" : "bg-red-50/40"}>
                     <td className="px-5 py-3">
@@ -83,18 +77,26 @@ export default async function UsuariosPage() {
                       <p className="text-xs text-slate-400">{u.email}</p>
                     </td>
                     <td className="px-5 py-3">
-                      {esYo ? (
-                        <Badge className={ROL_COLOR[u.role]}>
-                          {ROL_LABEL[u.role] ?? u.role}
+                      {esSuper ? (
+                        <Badge className="bg-purple-100 text-purple-700">
+                          Super admin
                         </Badge>
                       ) : (
-                        <CambiarRol userId={u.id} role={u.role} />
+                        <div>
+                          <Badge className="bg-slate-100 text-slate-600">
+                            Usuario
+                          </Badge>
+                          {talleres.length > 0 && (
+                            <p className="mt-1 text-xs text-blue-700">
+                              Admin de: {talleres.join(", ")}
+                            </p>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="px-5 py-3 text-xs text-slate-500">
-                      {u._count.ordenesComoCliente} órdenes ·{" "}
-                      {u._count.membresias} taller
-                      {u._count.membresias === 1 ? "" : "es"}
+                      {u._count.ordenesComoCliente} órdenes · {talleres.length}{" "}
+                      taller{talleres.length === 1 ? "" : "es"}
                     </td>
                     <td className="px-5 py-3 text-xs text-slate-400">
                       {formatDate(u.creadoEn)}
@@ -107,7 +109,7 @@ export default async function UsuariosPage() {
                       )}
                     </td>
                     <td className="px-5 py-3">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex flex-wrap items-center justify-end gap-1">
                         {!esYo && u.activo && (
                           <form action={impersonar.bind(null, u.id)}>
                             <button
@@ -118,6 +120,9 @@ export default async function UsuariosPage() {
                               Entrar como →
                             </button>
                           </form>
+                        )}
+                        {!esYo && (
+                          <SuperAdminToggle userId={u.id} esSuper={esSuper} />
                         )}
                         {!esSuper && (
                           <UsuarioAcciones userId={u.id} activo={u.activo} />

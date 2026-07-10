@@ -2,17 +2,19 @@ import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import { ButtonLink } from "@/components/ui";
 import { LogoMark } from "@/components/Logo";
+import { getTallerDelUsuario } from "@/lib/session";
 
 export default async function PublicNav() {
   const session = await auth();
   const role = session?.user?.role;
 
+  // Super admin → /admin; con taller (membresía) → /panel; resto → /mi-cuenta.
+  const membership =
+    session?.user && role !== "SUPER_ADMIN"
+      ? await getTallerDelUsuario(session.user.id)
+      : null;
   const panelHref =
-    role === "SUPER_ADMIN"
-      ? "/admin"
-      : role === "TALLER"
-        ? "/panel"
-        : "/mi-cuenta";
+    role === "SUPER_ADMIN" ? "/admin" : membership ? "/panel" : "/mi-cuenta";
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur">

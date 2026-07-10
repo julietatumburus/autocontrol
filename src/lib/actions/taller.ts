@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { auth, unstable_update } from "@/auth";
+import { auth } from "@/auth";
 
 type Result = { error?: string; ok?: boolean };
 
@@ -153,21 +153,11 @@ export async function crearTallerParaUsuario(
         etapas: { create: ETAPAS_DEFAULT },
       },
     });
+    // El usuario pasa a ser ADMIN de su taller (la membresía define "ser taller").
     await tx.tallerMember.create({
       data: { userId: session.user.id, tallerId: taller.id, role: "ADMIN" },
     });
-    if (session.user.role === "CLIENTE") {
-      await tx.user.update({
-        where: { id: session.user.id },
-        data: { role: "TALLER" },
-      });
-    }
   });
-
-  // Refresca la sesión actual para reflejar el rol de taller sin re-login.
-  if (session.user.role === "CLIENTE") {
-    await unstable_update({ becameTaller: true });
-  }
 
   revalidatePath("/panel");
   revalidatePath("/mi-cuenta");

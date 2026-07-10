@@ -17,8 +17,6 @@ declare module "next-auth" {
     impersonate?: { id: string; role: UserRole; nombre: string };
     /** Señal para terminar la impersonación (solo se usa en unstable_update) */
     stopImpersonate?: boolean;
-    /** Señal: el usuario acaba de crear su taller (refresca rol a TALLER) */
-    becameTaller?: boolean;
   }
 
   interface User {

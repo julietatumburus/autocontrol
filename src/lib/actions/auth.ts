@@ -144,11 +144,19 @@ export async function registrarTaller(
   redirect("/panel");
 }
 
-/** Destino por defecto según el rol del usuario. */
-function destinoPorRol(role: string | undefined): string {
-  if (role === "SUPER_ADMIN") return "/admin";
-  if (role === "TALLER") return "/panel";
-  return "/mi-cuenta";
+/** Destino por defecto: super admin → /admin; con taller → /panel; resto → /mi-cuenta. */
+async function destinoInicial(email: string): Promise<string> {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, role: true },
+  });
+  if (!user) return "/mi-cuenta";
+  if (user.role === "SUPER_ADMIN") return "/admin";
+  const member = await prisma.tallerMember.findFirst({
+    where: { userId: user.id },
+    select: { id: true },
+  });
+  return member ? "/panel" : "/mi-cuenta";
 }
 
 export async function autenticar(
@@ -169,14 +177,10 @@ export async function autenticar(
     throw error;
   }
 
-  // 2. Decidimos a dónde ir: el parámetro explícito, o según el rol.
+  // 2. Decidimos a dónde ir: el parámetro explícito, o según el contexto.
   let destino = redirectParam && redirectParam !== "/" ? redirectParam : "";
   if (!destino) {
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: { role: true },
-    });
-    destino = destinoPorRol(user?.role);
+    destino = await destinoInicial(email);
   }
 
   // redirect() lanza NEXT_REDIRECT (fuera del try para no atraparlo).
