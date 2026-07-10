@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { TallerEstado } from "@prisma/client";
+import { TallerEstado, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 
@@ -44,6 +44,40 @@ export async function cambiarEstadoUsuario(
   }
 
   await prisma.user.update({ where: { id: userId }, data: { activo } });
+  revalidatePath("/admin/usuarios");
+  return { ok: true };
+}
+
+/** Cambia el rol de un usuario (solo super admin). */
+export async function cambiarRolUsuario(
+  userId: string,
+  role: UserRole,
+): Promise<{ error?: string; ok?: boolean }> {
+  const session = await auth();
+  if (session?.user?.role !== "SUPER_ADMIN") {
+    return { error: "Solo el super admin puede hacer esto" };
+  }
+  if (userId === session.user.id) {
+    return { error: "No podés cambiar tu propio rol." };
+  }
+
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+  if (!target) return { error: "Usuario no encontrado." };
+
+  // No dejar la plataforma sin ningún super admin
+  if (target.role === "SUPER_ADMIN" && role !== "SUPER_ADMIN") {
+    const superAdmins = await prisma.user.count({
+      where: { role: "SUPER_ADMIN" },
+    });
+    if (superAdmins <= 1) {
+      return { error: "Tiene que quedar al menos un super admin." };
+    }
+  }
+
+  await prisma.user.update({ where: { id: userId }, data: { role } });
   revalidatePath("/admin/usuarios");
   return { ok: true };
 }

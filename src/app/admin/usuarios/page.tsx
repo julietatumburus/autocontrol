@@ -4,6 +4,7 @@ import { Card, Badge } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 import { impersonar } from "@/lib/actions/impersonar";
 import UsuarioAcciones from "./UsuarioAcciones";
+import CambiarRol from "./CambiarRol";
 
 export const dynamic = "force-dynamic";
 
@@ -82,9 +83,13 @@ export default async function UsuariosPage() {
                       <p className="text-xs text-slate-400">{u.email}</p>
                     </td>
                     <td className="px-5 py-3">
-                      <Badge className={ROL_COLOR[u.role]}>
-                        {ROL_LABEL[u.role] ?? u.role}
-                      </Badge>
+                      {esYo ? (
+                        <Badge className={ROL_COLOR[u.role]}>
+                          {ROL_LABEL[u.role] ?? u.role}
+                        </Badge>
+                      ) : (
+                        <CambiarRol userId={u.id} role={u.role} />
+                      )}
                     </td>
                     <td className="px-5 py-3 text-xs text-slate-500">
                       {u._count.ordenesComoCliente} órdenes ·{" "}
