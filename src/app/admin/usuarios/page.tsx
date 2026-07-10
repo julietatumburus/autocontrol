@@ -5,6 +5,7 @@ import { formatDate } from "@/lib/utils";
 import { impersonar } from "@/lib/actions/impersonar";
 import UsuarioAcciones from "./UsuarioAcciones";
 import SuperAdminToggle from "./SuperAdminToggle";
+import EliminarUsuario from "./EliminarUsuario";
 
 export const dynamic = "force-dynamic";
 
@@ -126,6 +127,9 @@ export default async function UsuariosPage() {
                         )}
                         {!esSuper && (
                           <UsuarioAcciones userId={u.id} activo={u.activo} />
+                        )}
+                        {!esYo && !esSuper && (
+                          <EliminarUsuario userId={u.id} email={u.email} />
                         )}
                       </div>
                     </td>
