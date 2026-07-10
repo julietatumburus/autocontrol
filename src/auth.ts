@@ -27,6 +27,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           where: { email: email.toLowerCase() },
         });
         if (!user) return null;
+        if (!user.activo) return null; // cuenta dada de baja
 
         const passwordOk = await bcrypt.compare(password, user.passwordHash);
         if (!passwordOk) return null;

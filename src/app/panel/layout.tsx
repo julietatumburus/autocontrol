@@ -14,10 +14,15 @@ export default async function PanelLayout({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login?redirect=/panel");
-  if (session.user.role === "CLIENTE") redirect("/mi-cuenta");
 
   const membership = await getTallerDelUsuario(session.user.id);
   const taller = membership?.taller;
+
+  // Acceso por membresía real (soporta multi-rol): sin taller y sin ser super
+  // admin, mandamos al usuario a su cuenta de cliente.
+  if (!membership && session.user.role !== "SUPER_ADMIN") {
+    redirect("/mi-cuenta");
+  }
 
   const agendaPendientes = taller
     ? await prisma.turno.count({
@@ -53,6 +58,12 @@ export default async function PanelLayout({
                 {taller.estado}
               </Badge>
             )}
+            <Link
+              href="/mi-cuenta"
+              className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+            >
+              Mi cuenta
+            </Link>
             <span className="hidden text-sm text-slate-500 sm:inline">
               {session.user.nombre}
             </span>

@@ -25,8 +25,14 @@ export const authConfig = {
         | {
             impersonate?: { id: string; role: UserRole; nombre: string };
             stopImpersonate?: boolean;
+            becameTaller?: boolean;
           }
         | undefined;
+
+      // El usuario creó su taller: subimos el rol a TALLER (sin re-login).
+      if (trigger === "update" && upd?.becameTaller && token.role === "CLIENTE") {
+        token.role = "TALLER";
+      }
 
       if (trigger === "update" && upd?.impersonate && token.role === "SUPER_ADMIN") {
         // Guardo la identidad real para poder volver

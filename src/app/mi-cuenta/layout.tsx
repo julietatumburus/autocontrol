@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { getTallerDelUsuario } from "@/lib/session";
 import { LogoMark } from "@/components/Logo";
 
 export default async function CuentaLayout({
@@ -12,9 +13,12 @@ export default async function CuentaLayout({
   const session = await auth();
   if (!session?.user) redirect("/login?redirect=/mi-cuenta");
 
-  const noLeidas = await prisma.notificacion.count({
-    where: { userId: session.user.id, leidaEn: null },
-  });
+  const [noLeidas, membership] = await Promise.all([
+    prisma.notificacion.count({
+      where: { userId: session.user.id, leidaEn: null },
+    }),
+    getTallerDelUsuario(session.user.id),
+  ]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -47,6 +51,21 @@ export default async function CuentaLayout({
                 </span>
               )}
             </Link>
+            {membership ? (
+              <Link
+                href="/panel"
+                className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
+              >
+                Mi taller
+              </Link>
+            ) : (
+              <Link
+                href="/registrar-taller"
+                className="hidden rounded-lg px-3 py-2 text-sm font-medium text-brand-600 hover:bg-slate-100 sm:block"
+              >
+                Registrar mi taller
+              </Link>
+            )}
             <span className="hidden text-sm text-slate-500 sm:inline">
               {session.user.nombre}
             </span>

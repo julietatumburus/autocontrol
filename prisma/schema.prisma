@@ -105,6 +105,7 @@ model User {
   nombre       String
   telefono     String?
   role         UserRole @default(CLIENTE)
+  activo       Boolean  @default(true) // baja lógica (super admin)
   creadoEn     DateTime @default(now())
   actualizadoEn DateTime @updatedAt
 

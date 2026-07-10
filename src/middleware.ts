@@ -27,17 +27,12 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Reglas por rol
+  // /admin es exclusivo del super admin.
   if (enAdmin && role !== "SUPER_ADMIN") {
     return NextResponse.redirect(new URL("/", nextUrl));
   }
-  if (enPanel && role !== "TALLER" && role !== "SUPER_ADMIN") {
-    return NextResponse.redirect(new URL("/mi-cuenta", nextUrl));
-  }
-  if (enCuenta && role !== "CLIENTE" && role !== "SUPER_ADMIN") {
-    return NextResponse.redirect(new URL("/panel", nextUrl));
-  }
-
+  // /panel y /mi-cuenta: cualquier usuario logueado. El acceso real lo
+  // resuelven los layouts (panel exige tener un taller; multi-rol soportado).
   return NextResponse.next();
 });
 

@@ -46,6 +46,12 @@ export default async function AdminLayout({
           >
             Clientes
           </Link>
+          <Link
+            href="/admin/usuarios"
+            className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-300 hover:bg-white/10"
+          >
+            Usuarios
+          </Link>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>

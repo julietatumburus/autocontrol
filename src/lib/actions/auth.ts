@@ -93,7 +93,11 @@ export async function registrarTaller(
   const existe = await prisma.user.findUnique({
     where: { email: email.toLowerCase() },
   });
-  if (existe) return { error: "Ya existe una cuenta con ese email" };
+  if (existe)
+    return {
+      error:
+        "Ya existe una cuenta con ese email. Iniciá sesión y registrá tu taller desde tu cuenta.",
+    };
 
   // Slug único para el taller
   const base = slugify(nombreTaller);

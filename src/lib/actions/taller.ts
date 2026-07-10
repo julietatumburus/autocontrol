@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/auth";
+import { auth, unstable_update } from "@/auth";
 
 type Result = { error?: string; ok?: boolean };
 
@@ -164,7 +164,13 @@ export async function crearTallerParaUsuario(
     }
   });
 
+  // Refresca la sesión actual para reflejar el rol de taller sin re-login.
+  if (session.user.role === "CLIENTE") {
+    await unstable_update({ becameTaller: true });
+  }
+
   revalidatePath("/panel");
+  revalidatePath("/mi-cuenta");
   return { ok: true };
 }
 
