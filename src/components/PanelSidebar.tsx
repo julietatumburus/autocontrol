@@ -25,7 +25,7 @@ export default function PanelSidebar({
   const pathname = usePathname();
 
   return (
-    <nav className="flex gap-1 lg:flex-col">
+    <nav className="-mx-4 flex gap-1 overflow-x-auto px-4 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0">
       {items.map((it) => {
         const active = it.exact
           ? pathname === it.href
@@ -35,7 +35,7 @@ export default function PanelSidebar({
             key={it.href}
             href={it.href}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              "flex shrink-0 items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               active
                 ? "bg-brand-600 text-white"
                 : "text-slate-600 hover:bg-slate-100",
