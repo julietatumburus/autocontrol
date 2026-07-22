@@ -63,8 +63,15 @@ function ClienteForm() {
         <Input id="c-email" name="email" type="email" required />
       </div>
       <div>
-        <Label htmlFor="c-tel">Teléfono (opcional)</Label>
-        <Input id="c-tel" name="telefono" />
+        <Label htmlFor="c-tel">Teléfono</Label>
+        <Input id="c-tel" name="telefono" type="tel" required />
+      </div>
+      <div>
+        <Label htmlFor="c-dni">DNI</Label>
+        <Input id="c-dni" name="dni" inputMode="numeric" required />
+        <p className="mt-1 text-xs text-slate-400">
+          Lo usamos como tu identificación al firmar presupuestos.
+        </p>
       </div>
       <div>
         <Label htmlFor="c-pass">Contraseña</Label>
@@ -102,8 +109,15 @@ function TallerForm() {
         <Input id="t-email" name="email" type="email" required />
       </div>
       <div>
-        <Label htmlFor="t-tel">Teléfono (opcional)</Label>
-        <Input id="t-tel" name="telefono" />
+        <Label htmlFor="t-tel">Teléfono</Label>
+        <Input id="t-tel" name="telefono" type="tel" required />
+      </div>
+      <div>
+        <Label htmlFor="t-dni">DNI</Label>
+        <Input id="t-dni" name="dni" inputMode="numeric" required />
+        <p className="mt-1 text-xs text-slate-400">
+          Se usa como identificación al firmar presupuestos.
+        </p>
       </div>
       <div>
         <Label htmlFor="t-pass">Contraseña</Label>

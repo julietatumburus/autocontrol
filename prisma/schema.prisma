@@ -104,6 +104,7 @@ model User {
   passwordHash String
   nombre       String
   telefono     String?
+  dni          String? // documento; se usa como identificación al firmar presupuestos
   role         UserRole @default(CLIENTE)
   activo       Boolean  @default(true) // baja lógica (super admin)
   creadoEn     DateTime @default(now())
@@ -376,9 +377,12 @@ model Presupuesto {
   detalle       Json // snapshot de ítems + datos al momento de enviar
   nota          String? // nota del taller al enviar
   motivoRechazo String?
-  // "Firmas" (snapshots de nombres al momento de la respuesta)
+  // "Firmas" (snapshots de nombre + DNI al momento de la respuesta)
   clienteNombre String
+  clienteDni    String? // DNI del cliente al aprobar
   tallerNombre  String
+  tallerFirmante String? // persona que firma por el taller
+  tallerDni     String? // DNI de quien firma por el taller
   enviadoPorId  String?
   enviadoEn     DateTime          @default(now())
   respondidoEn  DateTime?

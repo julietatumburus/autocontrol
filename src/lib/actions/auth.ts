@@ -23,7 +23,8 @@ const ETAPAS_DEFAULT = [
 const registroClienteSchema = z.object({
   nombre: z.string().min(2, "Ingresá tu nombre"),
   email: z.string().email("Email inválido"),
-  telefono: z.string().optional(),
+  telefono: z.string().trim().min(6, "Ingresá tu teléfono"),
+  dni: z.string().trim().min(6, "Ingresá tu DNI"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
 });
 
@@ -35,13 +36,14 @@ export async function registrarCliente(
     nombre: formData.get("nombre"),
     email: formData.get("email"),
     telefono: formData.get("telefono"),
+    dni: formData.get("dni"),
     password: formData.get("password"),
   });
   if (!parsed.success) {
     return { error: parsed.error.errors[0].message };
   }
 
-  const { nombre, email, telefono, password } = parsed.data;
+  const { nombre, email, telefono, dni, password } = parsed.data;
   const existe = await prisma.user.findUnique({
     where: { email: email.toLowerCase() },
   });
@@ -53,6 +55,7 @@ export async function registrarCliente(
       nombre,
       email: email.toLowerCase(),
       telefono,
+      dni,
       passwordHash,
       role: "CLIENTE",
     },
@@ -70,7 +73,8 @@ const registroTallerSchema = z.object({
   nombreTaller: z.string().min(2, "Ingresá el nombre del taller"),
   nombre: z.string().min(2, "Ingresá tu nombre"),
   email: z.string().email("Email inválido"),
-  telefono: z.string().optional(),
+  telefono: z.string().trim().min(6, "Ingresá tu teléfono"),
+  dni: z.string().trim().min(6, "Ingresá tu DNI"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
 });
 
@@ -83,13 +87,14 @@ export async function registrarTaller(
     nombre: formData.get("nombre"),
     email: formData.get("email"),
     telefono: formData.get("telefono"),
+    dni: formData.get("dni"),
     password: formData.get("password"),
   });
   if (!parsed.success) {
     return { error: parsed.error.errors[0].message };
   }
 
-  const { nombreTaller, nombre, email, telefono, password } = parsed.data;
+  const { nombreTaller, nombre, email, telefono, dni, password } = parsed.data;
   const existe = await prisma.user.findUnique({
     where: { email: email.toLowerCase() },
   });
@@ -115,6 +120,7 @@ export async function registrarTaller(
         nombre,
         email: email.toLowerCase(),
         telefono,
+        dni,
         passwordHash,
         role: "TALLER",
       },

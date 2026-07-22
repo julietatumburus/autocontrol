@@ -104,6 +104,11 @@ export default async function ContratoPage({
               </p>
               <p className="text-slate-800">{pres.orden.cliente.nombre}</p>
               <p className="text-sm text-slate-500">{pres.orden.cliente.email}</p>
+              {(pres.clienteDni ?? pres.orden.cliente.dni) && (
+                <p className="text-sm text-slate-500">
+                  DNI {pres.clienteDni ?? pres.orden.cliente.dni}
+                </p>
+              )}
             </div>
             <div className="sm:col-span-2">
               <p className="text-xs font-semibold uppercase text-slate-400">
@@ -125,17 +130,44 @@ export default async function ContratoPage({
             </p>
           )}
 
-          {/* Firmas */}
-          <div className="mt-10 grid grid-cols-2 gap-8">
-            <div className="border-t-2 border-slate-300 pt-2 text-center">
-              <p className="font-medium text-slate-800">{pres.clienteNombre}</p>
-              <p className="text-xs text-slate-400">
-                Cliente {aprobado ? "— Aprobado" : ""}
-              </p>
+          {/* Firmas — datos arriba de la línea (como firma ológrafa) */}
+          <div className="mt-12 grid grid-cols-2 gap-8">
+            {/* Cliente */}
+            <div className="flex flex-col text-center">
+              <div className="flex min-h-[3.5rem] flex-col justify-end">
+                <p className="font-medium text-slate-800">
+                  {pres.clienteNombre}
+                </p>
+                {pres.clienteDni && (
+                  <p className="text-xs text-slate-500">DNI {pres.clienteDni}</p>
+                )}
+                <p className="text-xs text-slate-400">
+                  Cliente {aprobado ? "— Aprobado" : ""}
+                </p>
+              </div>
+              <div className="mt-2 border-t-2 border-slate-300 pt-1">
+                <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                  Firma
+                </p>
+              </div>
             </div>
-            <div className="border-t-2 border-slate-300 pt-2 text-center">
-              <p className="font-medium text-slate-800">{pres.tallerNombre}</p>
-              <p className="text-xs text-slate-400">Taller</p>
+            {/* Taller */}
+            <div className="flex flex-col text-center">
+              <div className="flex min-h-[3.5rem] flex-col justify-end">
+                <p className="font-medium text-slate-800">{pres.tallerNombre}</p>
+                {pres.tallerFirmante && (
+                  <p className="text-xs text-slate-500">
+                    {pres.tallerFirmante}
+                    {pres.tallerDni ? ` · DNI ${pres.tallerDni}` : ""}
+                  </p>
+                )}
+                <p className="text-xs text-slate-400">Taller</p>
+              </div>
+              <div className="mt-2 border-t-2 border-slate-300 pt-1">
+                <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                  Firma
+                </p>
+              </div>
             </div>
           </div>
 

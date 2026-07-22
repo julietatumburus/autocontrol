@@ -54,6 +54,11 @@ export async function enviarPresupuesto(
   });
   if (!orden) return { error: "Orden no encontrada" };
   const staff = await autorizarStaff(orden.tallerId);
+  // Identificación de quien firma por el taller (snapshot)
+  const firmante = await prisma.user.findUnique({
+    where: { id: staff.id },
+    select: { nombre: true, dni: true },
+  });
 
   if (orden.items.length === 0) {
     return { error: "Cargá al menos un ítem antes de enviar el presupuesto." };
@@ -85,7 +90,10 @@ export async function enviarPresupuesto(
         total: orden.total,
         nota: nota || null,
         clienteNombre: orden.cliente.nombre,
+        clienteDni: orden.cliente.dni,
         tallerNombre: orden.taller.nombre,
+        tallerFirmante: firmante?.nombre ?? staff.nombre,
+        tallerDni: firmante?.dni ?? null,
         enviadoPorId: staff.id,
         detalle: {
           vehiculo: `${orden.vehiculo.marca} ${orden.vehiculo.modelo} (${orden.vehiculo.patente})`,
@@ -121,6 +129,7 @@ export async function responderPresupuesto(
   presupuestoId: string,
   decision: "APROBAR" | "RECHAZAR",
   motivo?: string,
+  dni?: string,
 ): Promise<Result> {
   const session = await auth();
   if (!session?.user) return { error: "No autenticado" };
@@ -141,14 +150,35 @@ export async function responderPresupuesto(
 
   const aprobado = decision === "APROBAR";
 
+  // Al aprobar exigimos el DNI del cliente (identificación de la firma).
+  let clienteDni: string | undefined;
+  if (aprobado) {
+    const u = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { dni: true },
+    });
+    clienteDni = (dni?.trim() || u?.dni || "").trim();
+    if (!clienteDni) {
+      return { error: "Ingresá tu DNI para firmar el presupuesto." };
+    }
+    // Si no lo tenía cargado (o lo corrigió), lo guardamos en su perfil.
+    if (clienteDni !== u?.dni) {
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: { dni: clienteDni },
+      });
+    }
+  }
+
   await prisma.presupuesto.update({
     where: { id: presupuestoId },
     data: {
       estado: aprobado ? "APROBADO" : "RECHAZADO",
       respondidoEn: new Date(),
       motivoRechazo: aprobado ? null : motivo || null,
-      // Firma del cliente al momento de responder
+      // Firma del cliente al momento de responder (nombre + DNI)
       clienteNombre: session.user.nombre,
+      ...(aprobado ? { clienteDni } : {}),
     },
   });
 

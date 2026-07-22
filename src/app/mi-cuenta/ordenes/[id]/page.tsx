@@ -38,6 +38,7 @@ export default async function SeguimientoPage({
     include: {
       vehiculo: true,
       taller: true,
+      cliente: { select: { dni: true } },
       etapaActual: true,
       items: { orderBy: { creadoEn: "asc" } },
       timeline: { orderBy: { ingresoEn: "asc" } },
@@ -121,7 +122,10 @@ export default async function SeguimientoPage({
           )}
           <PresupuestoDetalle items={detalle.items} total={detalle.total} />
           <div className="mt-4">
-            <PresupuestoAprobacion presupuestoId={presupuesto.id} />
+            <PresupuestoAprobacion
+              presupuestoId={presupuesto.id}
+              dniActual={orden.cliente.dni ?? ""}
+            />
           </div>
         </Card>
       )}
