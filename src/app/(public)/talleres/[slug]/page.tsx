@@ -86,9 +86,6 @@ export default async function TallerPublicoPage({
                   <WhatsAppIcon size={15} /> WhatsApp
                 </a>
               )}
-              <span className="text-sm text-slate-500">
-                {taller.telefono || taller.whatsapp}
-              </span>
             </div>
           )}
         </div>
