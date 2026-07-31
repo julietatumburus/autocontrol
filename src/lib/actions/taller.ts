@@ -26,6 +26,17 @@ const tallerSchema = z.object({
   descripcion: z.string().optional(),
   direccion: z.string().optional(),
   telefono: z.string().optional(),
+  // WhatsApp opcional; si se carga, validamos formato internacional (10–15 dígitos).
+  whatsapp: z
+    .string()
+    .trim()
+    .optional()
+    .refine((v) => {
+      if (!v) return true;
+      if (!/^\+?[\d\s()\-]+$/.test(v)) return false;
+      const n = v.replace(/\D/g, "");
+      return n.length >= 10 && n.length <= 15;
+    }, "Ingresá el WhatsApp en formato internacional. Ej: +54 9 381 535-9505"),
   email: z.string().email().optional().or(z.literal("")),
 });
 
@@ -45,6 +56,7 @@ export async function actualizarTaller(
       descripcion: d.descripcion || null,
       direccion: d.direccion || null,
       telefono: d.telefono || null,
+      whatsapp: d.whatsapp || null,
       email: d.email || null,
     },
   });

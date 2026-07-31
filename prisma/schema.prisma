@@ -149,7 +149,8 @@ model Taller {
   descripcion String?
   logoUrl     String?
   direccion   String?
-  telefono    String?
+  telefono    String? // teléfono para llamar
+  whatsapp    String? // número de WhatsApp (formato internacional, solo dígitos al usarlo)
   email       String?
   estado      TallerEstado @default(PENDIENTE)
   creadoEn    DateTime     @default(now())

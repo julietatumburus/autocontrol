@@ -79,6 +79,7 @@ export default async function ConfigPage() {
               descripcion: taller.descripcion ?? "",
               direccion: taller.direccion ?? "",
               telefono: taller.telefono ?? "",
+              whatsapp: taller.whatsapp ?? "",
               email: taller.email ?? "",
             }}
           />
