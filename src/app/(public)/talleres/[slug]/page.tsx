@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Card, Badge, ButtonLink, Input, Button } from "@/components/ui";
 import { TallerLogo } from "@/components/TallerLogo";
-import { MapPinIcon, PhoneIcon, SearchIcon } from "@/components/icons";
+import { MapPinIcon, PhoneIcon, SearchIcon, WhatsAppIcon } from "@/components/icons";
 import Timeline from "@/components/Timeline";
 import {
   formatMoney,
@@ -45,6 +45,10 @@ export default async function TallerPublicoPage({
       })
     : null;
 
+  // Teléfono accionable: tel: para llamar, wa.me (solo dígitos) para WhatsApp.
+  const telHref = taller.telefono?.replace(/[^\d+]/g, "") ?? "";
+  const waHref = taller.telefono?.replace(/\D/g, "") ?? "";
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
       {/* Encabezado del taller */}
@@ -61,9 +65,23 @@ export default async function TallerPublicoPage({
             </p>
           )}
           {taller.telefono && (
-            <p className="flex items-center gap-2 text-slate-500">
-              <PhoneIcon className="text-slate-400" /> {taller.telefono}
-            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <a
+                href={`tel:${telHref}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3.5 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                <PhoneIcon size={15} className="text-brand-600" /> Llamar
+              </a>
+              <a
+                href={`https://wa.me/${waHref}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-3.5 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+              >
+                <WhatsAppIcon size={15} /> WhatsApp
+              </a>
+              <span className="text-sm text-slate-500">{taller.telefono}</span>
+            </div>
           )}
         </div>
       </div>
