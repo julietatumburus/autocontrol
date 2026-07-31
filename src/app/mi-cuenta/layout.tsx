@@ -4,6 +4,7 @@ import { auth, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getTallerDelUsuario } from "@/lib/session";
 import { LogoMark } from "@/components/Logo";
+import MobileTabBar, { type TabItem } from "@/components/MobileTabBar";
 
 export default async function CuentaLayout({
   children,
@@ -20,6 +21,16 @@ export default async function CuentaLayout({
     getTallerDelUsuario(session.user.id),
   ]);
 
+  const tabs: TabItem[] = [
+    { href: "/mi-cuenta", label: "Órdenes", icon: "ordenes", exact: true },
+    { href: "/mi-cuenta/turnos", label: "Turnos", icon: "turnos" },
+    { href: "/mi-cuenta/notificaciones", label: "Avisos", icon: "avisos", badge: noLeidas },
+    { href: "/talleres", label: "Talleres", icon: "talleres" },
+  ];
+  if (membership) {
+    tabs.push({ href: "/panel", label: "Taller", icon: "taller" });
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
@@ -28,7 +39,7 @@ export default async function CuentaLayout({
             <LogoMark size={28} /> Autocontrol
           </Link>
 
-          <nav className="order-last -mx-4 flex w-full items-center gap-1 overflow-x-auto px-4 sm:order-none sm:mx-0 sm:w-auto sm:gap-2 sm:overflow-visible sm:px-0">
+          <nav className="hidden items-center gap-2 sm:flex">
             <Link
               href="/mi-cuenta"
               className="shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
@@ -85,7 +96,8 @@ export default async function CuentaLayout({
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
+      <main className="mx-auto max-w-5xl px-4 py-6 pb-24 sm:pb-6">{children}</main>
+      <MobileTabBar items={tabs} />
     </div>
   );
 }

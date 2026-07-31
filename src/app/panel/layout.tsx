@@ -6,6 +6,7 @@ import { getTallerDelUsuario } from "@/lib/session";
 import PanelSidebar from "@/components/PanelSidebar";
 import { Badge } from "@/components/ui";
 import { LogoMark } from "@/components/Logo";
+import MobileTabBar, { type TabItem } from "@/components/MobileTabBar";
 
 export default async function PanelLayout({
   children,
@@ -33,6 +34,13 @@ export default async function PanelLayout({
         },
       })
     : 0;
+
+  const panelTabs: TabItem[] = [
+    { href: "/panel", label: "Resumen", icon: "resumen", exact: true },
+    { href: "/panel/ordenes", label: "Órdenes", icon: "ordenes" },
+    { href: "/panel/agenda", label: "Agenda", icon: "agenda", badge: agendaPendientes },
+    { href: "/panel/config", label: "Mi taller", icon: "taller" },
+  ];
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -81,12 +89,14 @@ export default async function PanelLayout({
         </div>
       </header>
 
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 lg:flex-row">
-        <aside className="lg:w-56 lg:shrink-0">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 pb-24 sm:pb-6 lg:flex-row">
+        <aside className="hidden sm:block lg:w-56 lg:shrink-0">
           <PanelSidebar agendaPendientes={agendaPendientes} />
         </aside>
         <main className="min-w-0 flex-1">{children}</main>
       </div>
+
+      <MobileTabBar items={panelTabs} />
     </div>
   );
 }
