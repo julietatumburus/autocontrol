@@ -20,7 +20,6 @@ export default function ReservarTurno({
   nombre: string;
   email: string;
 }) {
-  const [tipo, setTipo] = useState<"PRESUPUESTO" | "VISITA">("PRESUPUESTO");
   const [fecha, setFecha] = useState<string>(fechas[0]?.fecha ?? "");
   const [hora, setHora] = useState<string>("");
   const [state, action, pending] = useActionState(crearTurno, undefined);
@@ -45,30 +44,12 @@ export default function ReservarTurno({
   return (
     <form action={action} className="space-y-6">
       <input type="hidden" name="tallerId" value={tallerId} />
-      <input type="hidden" name="tipo" value={tipo} />
+      <input type="hidden" name="tipo" value="PRESUPUESTO" />
       <input type="hidden" name="fecha" value={fecha} />
       <input type="hidden" name="hora" value={hora} />
 
-      {/* Tipo */}
-      <div>
-        <Label>¿Qué necesitás?</Label>
-        <div className="mt-1 grid grid-cols-2 gap-2">
-          {(["PRESUPUESTO", "VISITA"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTipo(t)}
-              className={cn(
-                "rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors",
-                tipo === t
-                  ? "border-brand-500 bg-brand-50 text-brand-700"
-                  : "border-slate-200 text-slate-600 hover:bg-slate-50",
-              )}
-            >
-              {t === "PRESUPUESTO" ? "Presupuesto" : "Visita"}
-            </button>
-          ))}
-        </div>
+      <div className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">
+        Turno para <strong>presupuesto</strong>.
       </div>
 
       {/* Fecha */}

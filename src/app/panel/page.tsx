@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getTallerDelUsuario } from "@/lib/session";
 import { Card, Badge, ButtonLink } from "@/components/ui";
 import { MessageIcon } from "@/components/icons";
+import CompartirTaller from "@/components/CompartirTaller";
 import { formatMoney, ORDEN_ESTADO_LABEL, ORDEN_ESTADO_COLOR } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -83,7 +84,14 @@ export default async function PanelDashboard() {
           <h1 className="text-2xl font-bold text-slate-900">Resumen</h1>
           <p className="text-sm text-slate-500">{membership.taller.nombre}</p>
         </div>
-        <ButtonLink href="/panel/ordenes/nueva">+ Nueva orden</ButtonLink>
+        <div className="flex items-center gap-2">
+          <CompartirTaller
+            path={`/talleres/${membership.taller.slug}`}
+            nombre={membership.taller.nombre}
+            variant="secondary"
+          />
+          <ButtonLink href="/panel/ordenes/nueva">+ Nueva orden</ButtonLink>
+        </div>
       </div>
 
       {membership.taller.estado === "PENDIENTE" && (
