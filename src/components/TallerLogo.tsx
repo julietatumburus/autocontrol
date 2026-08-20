@@ -25,6 +25,8 @@ export function TallerLogo({
         alt={`Logo de ${nombre}`}
         width={size}
         height={size}
+        loading="lazy"
+        decoding="async"
         className={cn("object-cover", className)}
         style={{ width: size, height: size, borderRadius: radius }}
       />

@@ -44,6 +44,8 @@ export default function Galeria({
               <img
                 src={f.url}
                 alt={f.descripcion ?? "Foto del avance"}
+                loading="lazy"
+                decoding="async"
                 className="h-full w-full object-cover transition-transform group-hover:scale-105"
               />
             </button>

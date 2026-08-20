@@ -105,3 +105,11 @@ a, button, [role="button"] {
   .hero-car { display: none; }
   .hero-rise { opacity: 1 !important; transform: none !important; animation: none !important; }
 }
+
+/* Móvil: animar un elemento con blur() repinta el desenfoque en CADA frame
+   (muy caro y traba el celular). Dejamos la aurora estática —se pinta una vez—
+   y sacamos el auto que cruza. Se ve casi igual y va mucho más fluido. */
+@media (max-width: 640px) {
+  .hero-blob { animation: none !important; filter: blur(38px); }
+  .hero-car { display: none; }
+}
