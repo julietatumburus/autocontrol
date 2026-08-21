@@ -45,7 +45,10 @@ export default async function SeguimientoPage({
       comprobantes: true,
       presupuestos: { orderBy: { enviadoEn: "desc" } },
       mensajes: { include: { autor: true }, orderBy: { creadoEn: "asc" } },
-      fotos: { orderBy: { creadoEn: "desc" } },
+      fotos: {
+        select: { id: true, descripcion: true, etapaNombre: true, creadoEn: true },
+        orderBy: { creadoEn: "desc" },
+      },
     },
   });
 
@@ -193,7 +196,6 @@ export default async function SeguimientoPage({
               <GaleriaPorEtapa
                 fotos={orden.fotos.map((f) => ({
                   id: f.id,
-                  url: f.url,
                   descripcion: f.descripcion,
                   etapaNombre: f.etapaNombre,
                   creadoEn: f.creadoEn,

@@ -40,7 +40,7 @@ export default async function ClientesPage() {
             const admin = t.miembros[0]?.user;
             return (
               <Card key={t.id} className="flex items-center gap-4">
-                <TallerLogo src={t.logoUrl} nombre={t.nombre} size={48} />
+                <TallerLogo src={t.logoUrl ? `/api/img/logo/${t.id}` : null} nombre={t.nombre} size={48} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-slate-900">
                     {t.nombre}

@@ -73,7 +73,7 @@ export default async function TalleresPage({
           <Link key={t.id} href={`/talleres/${t.slug}`}>
             <Card className="h-full transition-shadow hover:shadow-md">
               <div className="flex items-start justify-between">
-                <TallerLogo src={t.logoUrl} nombre={t.nombre} size={48} />
+                <TallerLogo src={t.logoUrl ? `/api/img/logo/${t.id}` : null} nombre={t.nombre} size={48} />
                 <Badge className="bg-green-100 text-green-700">Activo</Badge>
               </div>
               <h3 className="mt-4 font-semibold text-slate-900">{t.nombre}</h3>

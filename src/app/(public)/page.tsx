@@ -211,7 +211,7 @@ export default async function HomePage() {
                 <Link key={t.id} href={`/talleres/${t.slug}`} className="group">
                   <div className="h-full rounded-2xl border border-zinc-200 bg-white p-5 transition-colors hover:border-zinc-400 sm:p-6">
                     <div className="flex items-start justify-between">
-                      <TallerLogo src={t.logoUrl} nombre={t.nombre} size={48} />
+                      <TallerLogo src={t.logoUrl ? `/api/img/logo/${t.id}` : null} nombre={t.nombre} size={48} />
                       <Badge className="bg-emerald-50 text-emerald-700">Activo</Badge>
                     </div>
                     <h3 className="mt-4 font-semibold text-zinc-900 group-hover:text-[#2b4b80]">

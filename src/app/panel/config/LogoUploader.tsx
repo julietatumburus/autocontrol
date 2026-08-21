@@ -51,7 +51,11 @@ export default function LogoUploader({
 
   return (
     <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-5">
-      <TallerLogo src={preview ?? logoUrl} nombre={nombre} size={72} />
+      <TallerLogo
+        src={preview ?? (logoUrl ? `/api/img/logo/${tallerId}` : null)}
+        nombre={nombre}
+        size={72}
+      />
 
       <div className="flex-1 space-y-2">
         <input

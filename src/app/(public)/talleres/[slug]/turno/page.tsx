@@ -63,7 +63,7 @@ export default async function TurnoPage({
       </Link>
 
       <div className="mt-6 flex items-center gap-4">
-        <TallerLogo src={taller.logoUrl} nombre={taller.nombre} size={56} />
+        <TallerLogo src={taller.logoUrl ? `/api/img/logo/${taller.id}` : null} nombre={taller.nombre} size={56} />
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Sacar un turno</h1>
           <p className="text-sm text-slate-500">{taller.nombre}</p>

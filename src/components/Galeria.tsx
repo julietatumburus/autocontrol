@@ -6,7 +6,6 @@ import { formatDate } from "@/lib/utils";
 
 export type Foto = {
   id: string;
-  url: string;
   descripcion: string | null;
   etapaNombre: string | null;
   creadoEn: string | Date;
@@ -42,7 +41,7 @@ export default function Galeria({
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={f.url}
+                src={`/api/img/foto/${f.id}`}
                 alt={f.descripcion ?? "Foto del avance"}
                 loading="lazy"
                 decoding="async"
@@ -80,8 +79,9 @@ export default function Galeria({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={abierta.url}
+              src={`/api/img/foto/${abierta.id}`}
               alt={abierta.descripcion ?? "Foto"}
+              decoding="async"
               className="max-h-[75vh] w-full object-contain"
             />
             <div className="flex items-center justify-between gap-3 p-3 text-sm">

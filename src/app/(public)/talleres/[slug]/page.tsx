@@ -55,7 +55,7 @@ export default async function TallerPublicoPage({
     <div className="mx-auto max-w-4xl px-4 py-12">
       {/* Encabezado del taller */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <TallerLogo src={taller.logoUrl} nombre={taller.nombre} size={80} />
+        <TallerLogo src={taller.logoUrl ? `/api/img/logo/${taller.id}` : null} nombre={taller.nombre} size={80} />
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold text-slate-900">{taller.nombre}</h1>
