@@ -39,7 +39,16 @@ export default async function AgendaPage() {
       </div>
 
       <Card>
-        <AgendaCalendar turnos={dto} />
+        <AgendaCalendar
+          turnos={dto}
+          tallerId={membership.tallerId}
+          config={{
+            apertura: membership.taller.agendaApertura,
+            cierre: membership.taller.agendaCierre,
+            duracion: membership.taller.agendaDuracionMin,
+            dias: membership.taller.agendaDias,
+          }}
+        />
       </Card>
     </div>
   );

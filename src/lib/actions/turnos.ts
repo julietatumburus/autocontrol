@@ -124,6 +124,79 @@ export async function cambiarEstadoTurno(
   return { ok: true };
 }
 
+/**
+ * El taller bloquea un horario (o todo el día) como "ocupado", para reservas
+ * que recibió por fuera de Autocontrol. Esos slots dejan de estar disponibles.
+ */
+export async function marcarOcupado(
+  tallerId: string,
+  fecha: string,
+  hora: string | null, // null = todo el día
+): Promise<Result> {
+  const session = await auth();
+  if (!session?.user) return { error: "No autenticado" };
+  if (session.user.role !== "SUPER_ADMIN") {
+    const member = await prisma.tallerMember.findUnique({
+      where: { userId_tallerId: { userId: session.user.id, tallerId } },
+    });
+    if (!member) return { error: "Sin permiso" };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return { error: "Fecha inválida" };
+
+  const taller = await prisma.taller.findUnique({ where: { id: tallerId } });
+  if (!taller) return { error: "Taller no encontrado" };
+
+  let horas: string[];
+  if (hora) {
+    if (!/^\d{2}:\d{2}$/.test(hora)) return { error: "Horario inválido" };
+    horas = [hora];
+  } else {
+    horas = slotsDisponibles(taller, fecha, new Set());
+    if (horas.length === 0) {
+      return { error: "No hay horarios para bloquear ese día." };
+    }
+  }
+
+  const instantes = horas.map((h) => fechaHoraInstant(fecha, h));
+  const existentes = await prisma.turno.findMany({
+    where: {
+      tallerId,
+      estado: { not: "CANCELADO" },
+      fechaHora: { in: instantes },
+    },
+    select: { fechaHora: true },
+  });
+  const yaOcupadas = new Set(existentes.map((t) => t.fechaHora.toISOString()));
+
+  const data = instantes
+    .filter((inst) => !yaOcupadas.has(inst.toISOString()))
+    .map((inst) => ({
+      tallerId,
+      tipo: "OCUPADO" as const,
+      estado: "CONFIRMADO" as const,
+      fechaHora: inst,
+      duracionMin: taller.agendaDuracionMin,
+      nombre: "Ocupado",
+      email: "ocupado@interno",
+    }));
+
+  if (data.length === 0) return { error: "Ese horario ya estaba ocupado." };
+  await prisma.turno.createMany({ data });
+
+  revalidatePath("/panel/agenda");
+  revalidatePath(`/talleres/${taller.slug}/turno`);
+  return { ok: true };
+}
+
+/** Libera (elimina) un bloqueo "ocupado". */
+export async function liberarBloqueo(turnoId: string): Promise<Result> {
+  const turno = await autorizarStaffTurno(turnoId);
+  if (turno.tipo !== "OCUPADO") return { error: "Ese turno no es un bloqueo." };
+  await prisma.turno.delete({ where: { id: turnoId } });
+  revalidatePath("/panel/agenda");
+  return { ok: true };
+}
+
 /** El cliente registrado cancela su propio turno. */
 export async function cancelarMiTurno(turnoId: string): Promise<Result> {
   const session = await auth();

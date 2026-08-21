@@ -69,6 +69,7 @@ enum PresupuestoEstado {
 enum TurnoTipo {
   PRESUPUESTO
   VISITA
+  OCUPADO // bloqueo manual del taller (reserva recibida por fuera de Autocontrol)
 }
 
 /// Estado de un turno agendado.
