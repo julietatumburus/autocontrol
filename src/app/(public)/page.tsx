@@ -25,9 +25,12 @@ export default async function HomePage() {
   return (
     <div className="bg-white">
       {/* ───────────────── Hero (claro) ───────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-brand-50 via-white to-white">
-        {/* Glow suave (estático, liviano) */}
-        <div className="pointer-events-none absolute -top-32 left-1/2 h-80 w-[46rem] max-w-full -translate-x-1/2 rounded-full bg-brand-200/40 blur-3xl" />
+      <section className="relative overflow-hidden bg-gradient-to-br from-brand-100 via-brand-50/50 to-white">
+        {/* Glow superior centro */}
+        <div className="pointer-events-none absolute -top-28 left-1/3 h-80 w-[42rem] max-w-full -translate-x-1/2 rounded-full bg-brand-300/45 blur-3xl" />
+        {/* Glow de acento arriba a la derecha (más marcado) */}
+        <div className="pointer-events-none absolute -top-16 right-[-4rem] h-[30rem] w-[30rem] rounded-full bg-brand-400/30 blur-[100px]" />
+        <div className="pointer-events-none absolute top-24 right-24 h-64 w-64 rounded-full bg-brand-500/15 blur-3xl" />
 
         <div className="relative z-10 mx-auto max-w-6xl px-5 py-16 sm:px-6 sm:py-24">
           <div className="max-w-3xl">
