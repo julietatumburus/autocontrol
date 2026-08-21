@@ -27,17 +27,17 @@ a, button, [role="button"] {
 }
 
 @theme {
-  /* Azul con gris (steel blue-gray) de Autocontrol — color principal #3f597b */
-  --color-brand-50: #f2f5f9;
-  --color-brand-100: #e3e9f1;
-  --color-brand-200: #c8d4e1;
-  --color-brand-300: #a1b2c8;
-  --color-brand-400: #738aa8;
-  --color-brand-500: #526d90;
-  --color-brand-600: #3f597b;
-  --color-brand-700: #354a66;
-  --color-brand-800: #2e3f55;
-  --color-brand-900: #263241;
+  /* Azul acero (con algo de gris) de Autocontrol — color principal #385c8c */
+  --color-brand-50: #f1f5fb;
+  --color-brand-100: #e0e9f4;
+  --color-brand-200: #c2d3e8;
+  --color-brand-300: #97b2d5;
+  --color-brand-400: #6389bd;
+  --color-brand-500: #4269a1;
+  --color-brand-600: #385c8c;
+  --color-brand-700: #2f4c73;
+  --color-brand-800: #2a405d;
+  --color-brand-900: #24344a;
 }
 
 /* ───────── Animaciones del hero de la landing (paleta navy) ───────── */

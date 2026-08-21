@@ -112,7 +112,7 @@ export default async function HomePage() {
           ].map((s) => (
             <div
               key={s.n}
-              className="group relative rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_2px_4px_-2px_rgba(15,23,42,0.08),0_16px_36px_-12px_rgba(15,23,42,0.22)] transition-transform hover:-translate-y-0.5"
+              className="group relative rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_2px_6px_-1px_rgba(15,23,42,0.13),0_18px_40px_-10px_rgba(15,23,42,0.30)] transition-transform hover:-translate-y-0.5"
             >
               <span className="absolute right-6 top-5 text-3xl font-bold text-slate-200">
                 {s.n}
@@ -161,7 +161,7 @@ export default async function HomePage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {talleres.map((t) => (
                 <Link key={t.id} href={`/talleres/${t.slug}`} className="group">
-                  <div className="h-full rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_2px_4px_-2px_rgba(15,23,42,0.08),0_16px_36px_-12px_rgba(15,23,42,0.22)] transition-transform hover:-translate-y-0.5 sm:p-6">
+                  <div className="h-full rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_2px_6px_-1px_rgba(15,23,42,0.13),0_18px_40px_-10px_rgba(15,23,42,0.30)] transition-transform hover:-translate-y-0.5 sm:p-6">
                     <div className="flex items-start justify-between">
                       <TallerLogo src={t.logoUrl ? `/api/img/logo/${t.id}` : null} nombre={t.nombre} size={48} />
                       <Badge className="bg-emerald-50 text-emerald-700">Activo</Badge>
@@ -192,7 +192,7 @@ export default async function HomePage() {
       <section className="border-t border-slate-100">
         <div className="mx-auto grid max-w-6xl gap-5 px-5 py-14 sm:px-6 sm:py-16 lg:grid-cols-2">
           {/* Clientes */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_2px_4px_-2px_rgba(15,23,42,0.08),0_16px_36px_-12px_rgba(15,23,42,0.22)] sm:p-7">
+          <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_2px_6px_-1px_rgba(15,23,42,0.13),0_18px_40px_-10px_rgba(15,23,42,0.30)] sm:p-7">
             <Badge className="bg-brand-50 text-brand-700">Para vos</Badge>
             <h3 className="mt-3 text-2xl font-bold text-slate-900">
               Si dejás tu auto
