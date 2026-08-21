@@ -88,7 +88,7 @@ a, button, [role="button"] {
 
 /* Auto que cruza con ruedas girando (sutil, de fondo) */
 .hero-car {
-  position: absolute; bottom: 26px; left: -180px; opacity: 0.45; z-index: 1;
+  position: absolute; bottom: 26px; left: -180px; opacity: 0.55; z-index: 1;
   animation: hero-cross 18s linear infinite;
 }
 @keyframes hero-cross {

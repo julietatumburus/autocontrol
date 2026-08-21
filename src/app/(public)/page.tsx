@@ -29,6 +29,33 @@ export default async function HomePage() {
         {/* Un único glow, más marcado */}
         <div className="pointer-events-none absolute -top-40 left-1/2 h-[40rem] w-[64rem] max-w-full -translate-x-[35%] rounded-full bg-brand-300/55 blur-[110px]" />
 
+        {/* Rueda que rueda y gira al cruzar (azul acero, sutil, desktop) */}
+        <div className="hero-car" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="66" height="66" fill="none">
+            <g className="hero-wheel" style={{ transformOrigin: "32px 32px" }}>
+              <circle cx="32" cy="32" r="30" fill="#2a405d" stroke="#385c8c" strokeWidth="1.5" />
+              <circle cx="32" cy="32" r="25" fill="none" stroke="rgba(99,137,189,0.45)" strokeWidth="1" />
+              <circle cx="32" cy="32" r="21" fill="rgba(56,92,140,0.14)" stroke="#6389bd" strokeWidth="2" />
+              <g stroke="#97b2d5" strokeWidth="3" strokeLinecap="round">
+                <line x1="32" y1="32" x2="32" y2="13" />
+                <line x1="32" y1="32" x2="50.1" y2="26.1" />
+                <line x1="32" y1="32" x2="43.2" y2="47.4" />
+                <line x1="32" y1="32" x2="20.8" y2="47.4" />
+                <line x1="32" y1="32" x2="13.9" y2="26.1" />
+              </g>
+              <g fill="#97b2d5">
+                <circle cx="32" cy="22.5" r="1.4" />
+                <circle cx="41" cy="29.5" r="1.4" />
+                <circle cx="37.6" cy="40" r="1.4" />
+                <circle cx="26.4" cy="40" r="1.4" />
+                <circle cx="23" cy="29.5" r="1.4" />
+              </g>
+              <circle cx="32" cy="32" r="5.5" fill="#a1b2c8" />
+              <circle cx="32" cy="32" r="2.3" fill="#2a405d" />
+            </g>
+          </svg>
+        </div>
+
         <div className="relative z-10 mx-auto max-w-6xl px-5 py-16 sm:px-6 sm:py-24">
           <div className="max-w-3xl">
             <span className="hero-rise hero-d1 inline-flex items-center gap-2 rounded-full border border-brand-100 bg-white px-3.5 py-1.5 text-xs font-medium text-brand-700 shadow-sm">
