@@ -16,8 +16,8 @@ export default async function AdminLayout({
     <div className="min-h-screen bg-slate-100">
       <header className="border-b border-slate-200 bg-slate-900 text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link href="/admin" className="flex items-center gap-2 font-bold">
-            <LogoMark size={28} /> Autocontrol
+          <Link href="/admin" className="flex items-center gap-2.5 font-bold" aria-label="Autocontrol">
+            <LogoMark size={30} />
             <span className="rounded bg-white/10 px-2 py-0.5 text-xs">
               Super admin
             </span>

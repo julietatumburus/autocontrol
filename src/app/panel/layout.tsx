@@ -46,10 +46,8 @@ export default async function PanelLayout({
     <div className="min-h-screen bg-slate-100">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-3">
-          <Link href="/panel" className="flex min-w-0 items-center gap-2 font-bold text-slate-900">
-            <LogoMark size={28} />
-            <span className="hidden sm:inline">Autocontrol</span>
-            <span className="hidden text-slate-300 sm:inline">/</span>
+          <Link href="/panel" className="flex min-w-0 items-center gap-2.5 font-bold text-slate-900" aria-label="Autocontrol">
+            <LogoMark size={30} />
             <span className="truncate text-slate-600">{taller?.nombre ?? "Panel"}</span>
           </Link>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">

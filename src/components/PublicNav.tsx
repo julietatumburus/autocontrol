@@ -19,9 +19,8 @@ export default async function PublicNav() {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link href="/" className="flex items-center gap-2 text-lg font-bold text-slate-900">
-          <LogoMark size={32} />
-          <span className="hidden sm:inline">Autocontrol</span>
+        <Link href="/" className="flex items-center" aria-label="Autocontrol">
+          <LogoMark size={34} />
         </Link>
 
         <nav className="flex items-center gap-2">
