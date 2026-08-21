@@ -32,7 +32,7 @@ export default async function CuentaLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-100">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-y-2 px-4 py-3">
           <Link href="/mi-cuenta" className="flex items-center gap-2 font-bold text-slate-900">

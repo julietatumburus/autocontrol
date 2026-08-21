@@ -13,7 +13,7 @@ export default async function AdminLayout({
   if (session.user.role !== "SUPER_ADMIN") redirect("/");
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-100">
       <header className="border-b border-slate-200 bg-slate-900 text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Link href="/admin" className="flex items-center gap-2 font-bold">
