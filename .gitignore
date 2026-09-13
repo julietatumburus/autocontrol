@@ -33,3 +33,6 @@ yarn-error.log*
 
 # prisma
 /prisma/*.db
+
+# imágenes subidas (fotos de avance, logos)
+/uploads

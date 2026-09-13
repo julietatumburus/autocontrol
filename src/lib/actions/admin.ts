@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { TAG_TALLERES } from "@/lib/talleres-publicos";
 import { TallerEstado, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
@@ -19,6 +20,7 @@ export async function cambiarEstadoTaller(
   await soloSuperAdmin();
   await prisma.taller.update({ where: { id: tallerId }, data: { estado } });
   revalidatePath("/admin");
+  revalidateTag(TAG_TALLERES);
 }
 
 /** Da de baja (o reactiva) una cuenta de usuario. */

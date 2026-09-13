@@ -49,6 +49,18 @@ npm run dev
 ```
 Abrí http://localhost:3000
 
+### 5. Tests y lint
+```bash
+npm test        # vitest: lógica pura (agenda, garantía, límites, estados de orden)
+npm run lint    # eslint (flat config)
+```
+
+Las verificaciones que necesitan Postgres levantado (numeración concurrente,
+doble reserva de turnos, deduplicación de vehículos) van aparte:
+```bash
+npx tsx scripts/verificar-concurrencia.ts
+```
+
 ### 👤 Usuarios demo (tras el seed)
 Contraseña para todos: **`autocontrol123`**
 
@@ -89,14 +101,67 @@ Esto levanta Postgres y la app (con `SEED_ON_START=true` para cargar los datos d
    SMTP_USER=...
    SMTP_PASSWORD=...
    SMTP_FROM=Autocontrol <no-reply@tu-dominio.com>
+   # Carpeta de imágenes (ver el aviso del volumen, más abajo)
+   UPLOADS_DIR=/app/uploads
+   # Recordatorios de turnos por cron
+   CRON_SECRET=<generá uno: openssl rand -hex 32>
    # Solo en el PRIMER deploy, para crear tu super admin:
    # SEED_ON_START=true
    # SEED_DEMO=true   # (opcional) además carga talleres/órdenes demo
    ```
-4. **Deploy.** Al arrancar, el contenedor aplica el esquema (`prisma db push`) y levanta Next.js en el puerto **3000** (mapealo a tu dominio).
+4. **Deploy.** Al arrancar, el contenedor aplica las migraciones (`prisma migrate deploy`) y levanta Next.js en el puerto **3000** (mapealo a tu dominio). Si actualizás una instalación que ya existía, leé antes la sección **Actualizar una instalación existente**.
 5. Para crear tu **super admin**, poné `SEED_ON_START=true` en el primer deploy. Por defecto crea **solo tu cuenta** de super admin (`SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD`, o `autocontrol123` si no la definís). Quitá `SEED_ON_START` en los siguientes deploys. Si además querés los datos demo, sumá `SEED_DEMO=true`.
 
-> **Nota de producción:** el arranque usa `prisma db push` (sincroniza el esquema sin historial de migraciones), ideal para el MVP. Cuando el modelo se estabilice, conviene pasar a migraciones (`prisma migrate`) y cambiar el entrypoint a `prisma migrate deploy`.
+> ### ⚠️ Volumen persistente para las imágenes
+> Las fotos del avance y los logos de los talleres se guardan **en disco**, no en
+> la base. En Coolify hay que montar un **volumen persistente en `/app/uploads`**
+> (Storages → Add volume). Sin ese volumen, las imágenes se pierden en cada
+> despliegue.
+>
+> Si venís de una versión anterior, las imágenes que ya estaban guardadas como
+> data URL en la base **siguen funcionando**: la app detecta el formato viejo y
+> lo sirve igual. Solo las nuevas van al disco.
+
+---
+
+## 🔁 Actualizar una instalación existente
+
+El esquema pasó a usar **migraciones versionadas** (`prisma/migrations/`). El
+contenedor ejecuta `prisma migrate deploy` al arrancar.
+
+**Si la base es nueva**, no hay nada que hacer: el primer arranque aplica todas
+las migraciones solo.
+
+**Si la base ya tenía datos** (creada con `db push` por una versión anterior),
+tampoco hay que hacer nada: el arranque lo detecta (error `P3005`), marca el
+esquema existente como punto de partida y sigue. En los logs vas a ver:
+
+```
+ℹ️  Base preexistente sin historial de migraciones.
+   Marcando '0_init' como ya aplicada (baseline) y reintentando.
+```
+
+Los despliegues siguientes no repiten el paso: si no hay migraciones nuevas,
+el arranque solo informa `No pending migrations to apply`.
+
+### Qué hace la migración con tus datos
+
+La versión anterior permitía datos que el modelo nuevo prohíbe, así que la
+migración los corrige antes de crear cada índice:
+
+| Situación previa | Qué hace la migración |
+|---|---|
+| El mismo auto cargado varias veces (uno por ingreso al taller) | Conserva el más antiguo y **reapunta sus órdenes**; después borra los duplicados. No se pierde ninguna orden ni su historial. |
+| Dos turnos en el mismo horario (doble reserva) | Ambos se conservan. Solo el primero en reservar pasa a ocupar el horario a nivel base. |
+| Comprobantes y presupuestos ya emitidos | Inicializa los contadores con el último número usado por cada taller, para que la numeración **continúe** en vez de reiniciar y chocar. |
+
+> Probado ejecutando el entrypoint real contra una base con vehículos
+> triplicados, turnos doble-reservados y un comprobante `AC-XXXXX-0012`:
+> 3 vehículos → 1, las 3 órdenes intactas y sin huérfanas, y el próximo
+> comprobante quedó en `0013`. Un segundo arranque no vuelve a tocar nada.
+
+**Hacé un backup de la base antes de actualizar.** La migración borra filas
+duplicadas y eso no se deshace.
 
 ---
 
@@ -119,8 +184,13 @@ src/
   lib/
     prisma.ts          # cliente Prisma
     actions/           # server actions (auth, ordenes, taller, admin, notif)
+    orden-estado.ts    # reglas de qué se puede hacer según el estado de la orden
+    numeracion.ts      # numeración atómica de comprobantes/presupuestos
+    storage.ts         # imágenes en disco (fotos de avance, logos)
+    rate-limit.ts      # límite de intentos (login, reset, turnos, consultas)
+    diferido.ts        # tareas post-respuesta (envío de emails)
     notificaciones.ts  # avisos in-app + email
-    mailer.ts          # envío SMTP
+    mailer.ts          # envío SMTP (escapa el contenido del usuario)
 ```
 
 ## 🔄 Flujo central

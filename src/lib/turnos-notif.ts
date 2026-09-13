@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendEmail, emailTemplate } from "@/lib/mailer";
 import { notificarCliente } from "@/lib/notificaciones";
+import { enDiferido } from "@/lib/diferido";
 import { formatTurno } from "@/lib/agenda";
 
 const TIPO_LABEL: Record<string, string> = {
@@ -56,11 +57,14 @@ export async function avisarTurno(
       mensaje: msgCli,
     });
   } else {
-    await sendEmail({
-      to: turno.email,
-      subject: tituloCli,
-      html: emailTemplate(tituloCli, msgCli),
-    });
+    // Cliente no registrado: no hay bandeja in-app, solo el email (en diferido).
+    enDiferido(() =>
+      sendEmail({
+        to: turno.email,
+        subject: tituloCli,
+        html: emailTemplate(tituloCli, msgCli),
+      }),
+    );
   }
 
   // ── Taller ──
@@ -72,10 +76,12 @@ export async function avisarTurno(
     const msgT = esAlta
       ? `${turno.nombre} reservó un turno de ${tipo} para el ${cuando}.${turno.telefono ? ` Tel: ${turno.telefono}.` : ""}${turno.vehiculo ? ` Vehículo: ${turno.vehiculo}.` : ""}`
       : `Turno de ${tipo} con ${turno.nombre} el ${cuando}.`;
-    await sendEmail({
-      to: tallerEmail,
-      subject: tituloT,
-      html: emailTemplate(tituloT, msgT),
-    });
+    enDiferido(() =>
+      sendEmail({
+        to: tallerEmail,
+        subject: tituloT,
+        html: emailTemplate(tituloT, msgT),
+      }),
+    );
   }
 }

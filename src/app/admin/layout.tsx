@@ -52,6 +52,14 @@ export default async function AdminLayout({
           >
             Usuarios
           </Link>
+          {/* El super admin también usa Autocontrol como cliente: sus órdenes,
+              turnos y avisos viven en /mi-cuenta, igual que los de cualquiera. */}
+          <Link
+            href="/mi-cuenta"
+            className="ml-auto rounded-lg px-3 py-1.5 text-sm font-medium text-slate-300 hover:bg-white/10"
+          >
+            Mi cuenta de cliente
+          </Link>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>

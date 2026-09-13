@@ -2,11 +2,20 @@
 
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { notificarCliente } from "@/lib/notificaciones";
+import { enviarEmailAltaCliente } from "@/lib/password-reset";
+import { siguienteNumero } from "@/lib/numeracion";
+import {
+  puedeCambiarEtapa,
+  puedeModificarItems,
+  puedeCobrar,
+  puedeEntregar,
+} from "@/lib/orden-estado";
 import { formatMoney } from "@/lib/utils";
 
 type Result = { error?: string; ok?: boolean; mensaje?: string };
@@ -37,6 +46,50 @@ async function recalcularTotal(
   return total;
 }
 
+/** Convierte a Decimal validando que sea un número usable y no negativo. */
+function aDecimal(valor: string, porDefecto: string): Prisma.Decimal | null {
+  const limpio = (valor || porDefecto).replace(",", ".").trim();
+  try {
+    const d = new Prisma.Decimal(limpio);
+    if (!d.isFinite() || d.isNegative()) return null;
+    return d;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Si el cliente ya había aprobado un presupuesto y el total dejó de coincidir,
+ * se lo avisamos. El presupuesto conserva su propio snapshot, así que el
+ * importe firmado no cambia; lo que no puede pasar es que el cliente se entere
+ * del cambio recién al momento de pagar.
+ */
+async function avisarDesvioDePresupuesto(
+  ordenId: string,
+  totalNuevo: Prisma.Decimal,
+): Promise<void> {
+  const aprobado = await prisma.presupuesto.findFirst({
+    where: { ordenId, estado: "APROBADO" },
+    orderBy: { respondidoEn: "desc" },
+    include: { orden: { select: { clienteId: true } } },
+  });
+  if (!aprobado || aprobado.total.equals(totalNuevo)) return;
+
+  const diferencia = totalNuevo.sub(aprobado.total);
+  const subio = diferencia.greaterThan(0);
+
+  await notificarCliente({
+    userId: aprobado.orden.clienteId,
+    ordenId,
+    tipo: "GENERAL",
+    titulo: "El total de tu reparación cambió",
+    mensaje:
+      `El total pasó de ${formatMoney(aprobado.total)} (presupuesto ${aprobado.numero}, que aprobaste) ` +
+      `a ${formatMoney(totalNuevo)}: ${subio ? "subió" : "bajó"} ${formatMoney(diferencia.abs())}. ` +
+      `Si no estás de acuerdo, hablá con el taller antes de retirar el vehículo.`,
+  });
+}
+
 const crearOrdenSchema = z.object({
   tallerId: z.string().min(1),
   clienteEmail: z.string().email(),
@@ -60,6 +113,12 @@ export async function crearOrden(
 
   const staff = await autorizarStaff(d.tallerId);
 
+  const taller = await prisma.taller.findUnique({
+    where: { id: d.tallerId },
+    select: { nombre: true },
+  });
+  if (!taller) return { error: "Taller no encontrado." };
+
   // Primera etapa del taller
   const primeraEtapa = await prisma.etapaCatalogo.findFirst({
     where: { tallerId: d.tallerId },
@@ -69,34 +128,52 @@ export async function crearOrden(
     return { error: "El taller no tiene etapas configuradas." };
   }
 
-  let mensaje: string | undefined;
+  const email = d.clienteEmail.toLowerCase();
+  const patente = d.patente.toUpperCase().replace(/\s+/g, "");
+
+  // Cualquier cuenta puede ser cliente de un taller, incluida la del super
+  // admin: el rol dice qué puede administrar, no impide dejar el auto en un
+  // taller. Los permisos de cliente se resuelven por `clienteId`, no por rol.
+  let esClienteNuevo = false;
 
   const nueva = await prisma.$transaction(async (tx) => {
-    // Cliente: lo busca por email; si no existe, lo crea con clave temporal.
-    let cliente = await tx.user.findUnique({
-      where: { email: d.clienteEmail.toLowerCase() },
-    });
+    // Cliente: lo busca por email; si no existe, lo crea sin contraseña usable
+    // (se la define él mismo con el link que le llega por email).
+    let cliente = await tx.user.findUnique({ where: { email } });
     if (!cliente) {
-      const tempPass = Math.random().toString(36).slice(-8);
+      esClienteNuevo = true;
       cliente = await tx.user.create({
         data: {
-          email: d.clienteEmail.toLowerCase(),
+          email,
           nombre: d.clienteNombre,
           telefono: d.clienteTelefono,
-          passwordHash: await bcrypt.hash(tempPass, 10),
+          // Hash de un valor aleatorio que nadie conoce: la cuenta queda
+          // inaccesible hasta que el cliente define su contraseña.
+          passwordHash: await bcrypt.hash(
+            crypto.randomBytes(32).toString("hex"),
+            10,
+          ),
           role: "CLIENTE",
         },
       });
-      mensaje = `Cliente nuevo creado. Contraseña temporal: ${tempPass} (compartila con el cliente).`;
     }
 
-    const vehiculo = await tx.vehiculo.create({
-      data: {
+    // Reutiliza el vehículo si el cliente ya lo tenía cargado: antes cada
+    // ingreso al taller creaba un duplicado del mismo auto.
+    const vehiculo = await tx.vehiculo.upsert({
+      where: { clienteId_patente: { clienteId: cliente.id, patente } },
+      create: {
         clienteId: cliente.id,
         marca: d.marca,
         modelo: d.modelo,
         anio: d.anio ? Number(d.anio) : null,
-        patente: d.patente.toUpperCase(),
+        patente,
+        color: d.color,
+      },
+      update: {
+        marca: d.marca,
+        modelo: d.modelo,
+        anio: d.anio ? Number(d.anio) : null,
         color: d.color,
       },
     });
@@ -123,18 +200,27 @@ export async function crearOrden(
     return { ordenId: orden.id, clienteId: cliente.id };
   });
 
-  // El aviso (in-app + email) va FUERA de la transacción: una demora o fallo
-  // del SMTP no debe abortar la creación de la orden (timeout de transacción).
+  // Los avisos van FUERA de la transacción: una demora o fallo del SMTP no
+  // debe abortar la creación de la orden (timeout de transacción).
+  if (esClienteNuevo) {
+    await enviarEmailAltaCliente(nueva.clienteId, email, taller.nombre);
+  }
+
   await notificarCliente({
     userId: nueva.clienteId,
     ordenId: nueva.ordenId,
     tipo: "ORDEN_CREADA",
     titulo: "Tu orden fue creada",
-    mensaje: `Tu ${d.marca} ${d.modelo} ingresó al taller. Ya podés seguir la reparación desde Autocontrol.`,
+    mensaje: `${taller.nombre} recibió tu ${d.marca} ${d.modelo} (${patente}). Ya podés seguir la reparación desde Autocontrol.`,
   });
 
   revalidatePath("/panel/ordenes");
-  return { ok: true, mensaje };
+  return {
+    ok: true,
+    mensaje: esClienteNuevo
+      ? `Cliente nuevo creado. Le enviamos un email a ${email} para que defina su contraseña.`
+      : undefined,
+  };
 }
 
 /** Mueve la orden a una etapa del catálogo (avanza la "evolución"). */
@@ -149,6 +235,11 @@ export async function avanzarEtapa(
   });
   if (!orden) return { error: "Orden no encontrada" };
   const staff = await autorizarStaff(orden.tallerId);
+
+  // Sin esta guarda, mover de etapa una orden ya cobrada la devolvía a
+  // ABIERTA y se perdía el registro de que estaba pagada.
+  const permiso = puedeCambiarEtapa(orden.estado);
+  if (!permiso.ok) return { error: permiso.motivo };
 
   const etapa = await prisma.etapaCatalogo.findUnique({
     where: { id: etapaCatalogoId },
@@ -178,7 +269,9 @@ export async function avanzarEtapa(
       data: {
         etapaActualId: etapa.id,
         estado: etapa.esFinal ? "LISTA" : "ABIERTA",
-        listaEn: etapa.esFinal ? new Date() : null,
+        // Si ya había estado lista, conserva la fecha original en vez de
+        // pisarla cada vez que se vuelve a la etapa final.
+        listaEn: etapa.esFinal ? (orden.listaEn ?? new Date()) : null,
       },
     });
   });
@@ -223,33 +316,42 @@ export async function agregarItem(
   if (!parsed.success) return { error: parsed.error.errors[0].message };
   const d = parsed.data;
 
+  const cantidad = aDecimal(d.cantidad, "1");
+  const precio = aDecimal(d.precioUnitario, "0");
+  if (!cantidad || cantidad.isZero()) return { error: "Cantidad inválida" };
+  if (!precio) return { error: "Precio inválido" };
+
   const orden = await prisma.ordenDeTrabajo.findUnique({
     where: { id: d.ordenId },
   });
   if (!orden) return { error: "Orden no encontrada" };
   const staff = await autorizarStaff(orden.tallerId);
 
-  await prisma.$transaction(async (tx) => {
+  const permiso = puedeModificarItems(orden.estado);
+  if (!permiso.ok) return { error: permiso.motivo };
+
+  const total = await prisma.$transaction(async (tx) => {
+    const etapaAbierta = await tx.ordenEtapa.findFirst({
+      where: { ordenId: d.ordenId, salidaEn: null },
+      orderBy: { ingresoEn: "desc" },
+      select: { id: true },
+    });
+
     await tx.itemAplicado.create({
       data: {
         ordenId: d.ordenId,
-        ordenEtapaId: orden.etapaActualId
-          ? (
-              await tx.ordenEtapa.findFirst({
-                where: { ordenId: d.ordenId, salidaEn: null },
-                orderBy: { ingresoEn: "desc" },
-              })
-            )?.id
-          : undefined,
+        ordenEtapaId: etapaAbierta?.id,
         tipo: d.tipo,
         nombre: d.nombre,
-        cantidad: new Prisma.Decimal(d.cantidad || "1"),
-        precioUnitario: new Prisma.Decimal(d.precioUnitario || "0"),
+        cantidad,
+        precioUnitario: precio,
         registradoPorId: staff.id,
       },
     });
-    await recalcularTotal(tx, d.ordenId);
+    return recalcularTotal(tx, d.ordenId);
   });
+
+  await avisarDesvioDePresupuesto(d.ordenId, total);
 
   revalidatePath(`/panel/ordenes/${d.ordenId}`);
   revalidatePath("/mi-cuenta");
@@ -264,12 +366,18 @@ export async function eliminarItem(itemId: string): Promise<Result> {
   if (!item) return { error: "Ítem no encontrado" };
   await autorizarStaff(item.orden.tallerId);
 
-  await prisma.$transaction(async (tx) => {
+  const permiso = puedeModificarItems(item.orden.estado);
+  if (!permiso.ok) return { error: permiso.motivo };
+
+  const total = await prisma.$transaction(async (tx) => {
     await tx.itemAplicado.delete({ where: { id: itemId } });
-    await recalcularTotal(tx, item.ordenId);
+    return recalcularTotal(tx, item.ordenId);
   });
 
+  await avisarDesvioDePresupuesto(item.ordenId, total);
+
   revalidatePath(`/panel/ordenes/${item.ordenId}`);
+  revalidatePath("/mi-cuenta");
   return { ok: true };
 }
 
@@ -296,10 +404,34 @@ export async function registrarPago(
       vehiculo: true,
       cliente: true,
       taller: true,
+      comprobantes: { select: { numero: true } },
     },
   });
   if (!orden) return { error: "Orden no encontrada" };
   const staff = await autorizarStaff(orden.tallerId);
+
+  // ── Validaciones que antes no existían (ver src/lib/orden-estado.ts) ──
+  if (orden.comprobantes.length > 0) {
+    return {
+      error: `Esta orden ya tiene el comprobante ${orden.comprobantes[0].numero} emitido.`,
+    };
+  }
+  const permiso = puedeCobrar({
+    estado: orden.estado,
+    totalEsPositivo: orden.total.greaterThan(0),
+    yaTieneComprobante: false,
+  });
+  if (!permiso.ok) return { error: permiso.motivo };
+
+  const monto = aDecimal(d.monto, "0");
+  if (!monto) return { error: "Monto inválido" };
+  if (!monto.equals(orden.total)) {
+    // El comprobante se emite por `orden.total`; aceptar otro monto emitía un
+    // comprobante que no coincidía con lo efectivamente cobrado.
+    return {
+      error: `El monto debe coincidir con el total de la orden (${formatMoney(orden.total)}).`,
+    };
+  }
 
   let numeroComprobante = "";
 
@@ -307,19 +439,15 @@ export async function registrarPago(
     const pago = await tx.pago.create({
       data: {
         ordenId: d.ordenId,
-        monto: new Prisma.Decimal(d.monto),
+        monto,
         metodo: d.metodo,
         nota: d.nota,
         registradoPorId: staff.id,
       },
     });
 
-    // Numeración por taller (no expone el total global de la plataforma)
-    const seq = await tx.comprobante.count({
-      where: { orden: { tallerId: orden.tallerId } },
-    });
-    const code = orden.tallerId.slice(-5).toUpperCase();
-    numeroComprobante = `AC-${code}-${String(seq + 1).padStart(4, "0")}`;
+    // Numeración atómica por taller (no expone el total de la plataforma).
+    numeroComprobante = await siguienteNumero(tx, orden.tallerId, "COMPROBANTE");
 
     await tx.comprobante.create({
       data: {
@@ -370,6 +498,9 @@ export async function entregarOrden(ordenId: string): Promise<Result> {
   });
   if (!orden) return { error: "Orden no encontrada" };
   await autorizarStaff(orden.tallerId);
+
+  const permiso = puedeEntregar(orden.estado);
+  if (!permiso.ok) return { error: permiso.motivo };
 
   await prisma.ordenDeTrabajo.update({
     where: { id: ordenId },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { crearOrden } from "@/lib/actions/ordenes";
 import { Button, Input, Label } from "@/components/ui";
@@ -86,19 +87,19 @@ export default function NuevaOrdenForm({ tallerId }: { tallerId: string }) {
       {state?.ok && state.mensaje && (
         <div className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
           ✅ Orden creada. {state.mensaje}{" "}
-          <a href="/panel/ordenes" className="font-medium underline">
+          <Link href="/panel/ordenes" className="font-medium underline">
             Ver órdenes
-          </a>
+          </Link>
         </div>
       )}
 
       <div className="flex justify-end gap-3">
-        <a
+        <Link
           href="/panel/ordenes"
           className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
         >
           Cancelar
-        </a>
+        </Link>
         <Button type="submit" disabled={pending}>
           {pending ? "Creando..." : "Crear orden"}
         </Button>

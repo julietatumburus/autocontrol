@@ -115,8 +115,11 @@ async function main() {
       where: { tallerId: taller.id },
       orderBy: { orden: "asc" },
     });
-    const vehiculo = await prisma.vehiculo.create({
-      data: {
+    // upsert y no create: `Vehiculo(clienteId, patente)` es único, así que
+    // re-sembrar tras borrar la orden no debe chocar con el auto que quedó.
+    const vehiculo = await prisma.vehiculo.upsert({
+      where: { clienteId_patente: { clienteId: cliente.id, patente: "AB123CD" } },
+      create: {
         clienteId: cliente.id,
         marca: "Volkswagen",
         modelo: "Gol Trend",
@@ -124,6 +127,7 @@ async function main() {
         patente: "AB123CD",
         color: "Gris",
       },
+      update: {},
     });
 
     const orden = await prisma.ordenDeTrabajo.create({

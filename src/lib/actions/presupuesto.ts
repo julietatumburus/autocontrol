@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { notificarCliente } from "@/lib/notificaciones";
+import { siguienteNumero } from "@/lib/numeracion";
 import { formatMoney } from "@/lib/utils";
 
 type Result = { error?: string; ok?: boolean };
@@ -76,12 +77,8 @@ export async function enviarPresupuesto(
   }
 
   await prisma.$transaction(async (tx) => {
-    // Numeración por taller (no expone el total global de la plataforma)
-    const seq = await tx.presupuesto.count({
-      where: { orden: { tallerId: orden.tallerId } },
-    });
-    const code = orden.tallerId.slice(-5).toUpperCase();
-    const numero = `PR-${code}-${String(seq + 1).padStart(4, "0")}`;
+    // Numeración atómica por taller (no expone el total de la plataforma).
+    const numero = await siguienteNumero(tx, orden.tallerId, "PRESUPUESTO");
 
     await tx.presupuesto.create({
       data: {

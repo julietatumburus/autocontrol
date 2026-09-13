@@ -237,6 +237,8 @@ model Vehiculo {
   cliente User             @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   ordenes OrdenDeTrabajo[]
 
+  // Un cliente no puede tener el mismo auto dos veces: al reingresar se reutiliza.
+  @@unique([clienteId, patente])
   @@index([clienteId])
   @@index([patente])
 }
@@ -442,10 +444,26 @@ model Turno {
   recordatorioEnviado Boolean  @default(false)
   creadoEn            DateTime @default(now())
 
+  /// Clave del slot ("<tallerId>|<ISO>") mientras el turno ocupa el horario.
+  /// Es NULL cuando se cancela, y en Postgres los NULL no chocan entre si:
+  /// asi el indice unico impide la doble reserva sin bloquear rehacer el turno.
+  slotKey String? @unique
+
   taller  Taller @relation(fields: [tallerId], references: [id], onDelete: Cascade)
   cliente User?  @relation("TurnoCliente", fields: [clienteId], references: [id], onDelete: SetNull)
 
   @@index([tallerId, fechaHora])
   @@index([clienteId])
   @@index([estado, recordatorioEnviado])
+}
+
+/// Numerador atomico por taller (comprobantes, presupuestos).
+/// Evita la carrera de `count() + 1`: el incremento ocurre en la base.
+model Contador {
+  id       String @id @default(cuid())
+  tallerId String
+  tipo     String // "COMPROBANTE" | "PRESUPUESTO"
+  valor    Int    @default(0)
+
+  @@unique([tallerId, tipo])
 }

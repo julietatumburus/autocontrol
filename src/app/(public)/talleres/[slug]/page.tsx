@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { consumir } from "@/lib/rate-limit";
+import { ipDelCliente } from "@/lib/ip";
 import { Card, Badge, ButtonLink, Input, Button } from "@/components/ui";
 import { TallerLogo } from "@/components/TallerLogo";
 import { MapPinIcon, PhoneIcon, SearchIcon, WhatsAppIcon } from "@/components/icons";
@@ -33,17 +35,25 @@ export default async function TallerPublicoPage({
     ? patenteRaw.toUpperCase().replace(/\s+/g, "").trim()
     : "";
 
-  const orden = patente
-    ? await prisma.ordenDeTrabajo.findFirst({
-        where: { tallerId: taller.id, vehiculo: { patente } },
-        include: {
-          vehiculo: true,
-          etapaActual: true,
-          timeline: { orderBy: { ingresoEn: "asc" } },
-        },
-        orderBy: { creadoEn: "desc" },
-      })
-    : null;
+  // La patente es un dato visible en la calle y el formato argentino es
+  // enumerable, así que limitamos cuántas consultas puede hacer una misma IP
+  // para que no se pueda barrer el padrón de vehículos del taller.
+  const limitado =
+    patente !== "" &&
+    !consumir(`patente:${await ipDelCliente()}`, 10, 10 * 60_000).permitido;
+
+  const orden =
+    patente && !limitado
+      ? await prisma.ordenDeTrabajo.findFirst({
+          where: { tallerId: taller.id, vehiculo: { patente } },
+          include: {
+            vehiculo: true,
+            etapaActual: true,
+            timeline: { orderBy: { ingresoEn: "asc" } },
+          },
+          orderBy: { creadoEn: "desc" },
+        })
+      : null;
 
   // "Llamar" usa el teléfono; "WhatsApp" usa el número de WhatsApp
   // (o el teléfono como respaldo si no cargaron uno aparte).
@@ -133,7 +143,12 @@ export default async function TallerPublicoPage({
       {/* Resultado de la consulta: SOLO la hoja de ruta */}
       {patente && (
         <section className="mt-6">
-          {!orden ? (
+          {limitado ? (
+            <Card className="text-center text-slate-500">
+              Hiciste muchas consultas seguidas. Esperá unos minutos y probá de
+              nuevo, o consultá directamente en el taller.
+            </Card>
+          ) : !orden ? (
             <Card className="text-center text-slate-500">
               No encontramos un auto con la patente{" "}
               <span className="font-semibold text-slate-700">{patente}</span> en

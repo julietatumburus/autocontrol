@@ -18,8 +18,10 @@ export function TallerLogo({
   const radius = Math.round(size / 4);
 
   if (src) {
-    // eslint-disable-next-line @next/next/no-img-element
+    // Imagen propia servida por /api/img/logo: next/image no aporta acá y
+    // obligaría a configurar un loader para nuestra propia ruta.
     return (
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={src}
         alt={`Logo de ${nombre}`}

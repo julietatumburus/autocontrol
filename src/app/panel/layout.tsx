@@ -2,11 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getTallerDelUsuario } from "@/lib/session";
+import { getMembresias, getTallerDelUsuario } from "@/lib/session";
 import PanelSidebar from "@/components/PanelSidebar";
 import { Badge } from "@/components/ui";
 import { LogoMark } from "@/components/Logo";
 import MobileTabBar, { type TabItem } from "@/components/MobileTabBar";
+import TallerSwitcher from "@/components/TallerSwitcher";
 
 export default async function PanelLayout({
   children,
@@ -16,7 +17,10 @@ export default async function PanelLayout({
   const session = await auth();
   if (!session?.user) redirect("/login?redirect=/panel");
 
-  const membership = await getTallerDelUsuario(session.user.id);
+  const [membresias, membership] = await Promise.all([
+    getMembresias(session.user.id),
+    getTallerDelUsuario(session.user.id),
+  ]);
   const taller = membership?.taller;
 
   // Acceso por membresía real (soporta multi-rol): sin taller y sin ser super
@@ -51,6 +55,15 @@ export default async function PanelLayout({
             <span className="truncate text-slate-600">{taller?.nombre ?? "Panel"}</span>
           </Link>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            {membresias.length > 1 && taller && (
+              <TallerSwitcher
+                talleres={membresias.map((m) => ({
+                  id: m.tallerId,
+                  nombre: m.taller.nombre,
+                }))}
+                activoId={taller.id}
+              />
+            )}
             {taller && (
               <Badge
                 className={

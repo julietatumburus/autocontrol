@@ -24,6 +24,11 @@ RUN npm run build
 FROM base AS runner
 ENV NODE_ENV=production
 ENV PORT=3000
+# Las imágenes (fotos de avance y logos) se guardan en disco, no en la base.
+# ⚠️ En Coolify hay que montar un volumen persistente en esta ruta: sin eso las
+# imágenes se pierden en cada despliegue.
+ENV UPLOADS_DIR=/app/uploads
+RUN mkdir -p /app/uploads
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
@@ -34,6 +39,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
 
+VOLUME ["/app/uploads"]
 EXPOSE 3000
 
 # Al arrancar: aplica el esquema a la base y levanta Next.

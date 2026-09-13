@@ -3,10 +3,14 @@
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
+import { revalidateTag } from "next/cache";
+import { TAG_TALLERES } from "@/lib/talleres-publicos";
 import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/utils";
+import { consumir, devolver, mensajeEspera } from "@/lib/rate-limit";
+import { ipDelCliente } from "@/lib/ip";
 
 export type ActionState = { error?: string; ok?: boolean } | undefined;
 
@@ -25,7 +29,7 @@ const registroClienteSchema = z.object({
   email: z.string().email("Email inválido"),
   telefono: z.string().trim().min(6, "Ingresá tu teléfono"),
   dni: z.string().trim().min(6, "Ingresá tu DNI"),
-  password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
+  password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
 });
 
 export async function registrarCliente(
@@ -75,7 +79,7 @@ const registroTallerSchema = z.object({
   email: z.string().email("Email inválido"),
   telefono: z.string().trim().min(6, "Ingresá tu teléfono"),
   dni: z.string().trim().min(6, "Ingresá tu DNI"),
-  password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
+  password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
 });
 
 export async function registrarTaller(
@@ -142,6 +146,8 @@ export async function registrarTaller(
     });
   });
 
+  revalidateTag(TAG_TALLERES);
+
   await signIn("credentials", {
     email: email.toLowerCase(),
     password,
@@ -173,6 +179,15 @@ export async function autenticar(
   const password = String(formData.get("password") ?? "");
   const redirectParam = String(formData.get("redirect") || "");
 
+  // Freno a la fuerza bruta: por cuenta (para que no le prueben claves a un
+  // usuario concreto) y por IP (para que no barran muchas cuentas desde un
+  // mismo origen). Un login exitoso limpia el contador de la cuenta.
+  const claveEmail = `login:email:${email}`;
+  const porEmail = consumir(claveEmail, 5, 15 * 60_000);
+  if (!porEmail.permitido) return { error: mensajeEspera(porEmail) };
+  const porIp = consumir(`login:ip:${await ipDelCliente()}`, 20, 15 * 60_000);
+  if (!porIp.permitido) return { error: mensajeEspera(porIp) };
+
   // 1. Autenticamos SIN redirigir, para que la cookie de sesión se confirme.
   try {
     await signIn("credentials", { email, password, redirect: false });
@@ -182,6 +197,8 @@ export async function autenticar(
     }
     throw error;
   }
+
+  devolver(claveEmail);
 
   // 2. Decidimos a dónde ir: el parámetro explícito, o según el contexto.
   let destino = redirectParam && redirectParam !== "/" ? redirectParam : "";

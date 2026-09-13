@@ -1,10 +1,14 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { TAG_TALLERES } from "@/lib/talleres-publicos";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { COOKIE_TALLER } from "@/lib/session";
+import { guardarImagen, borrarImagen, mimeAceptado } from "@/lib/storage";
 
 type Result = { error?: string; ok?: boolean };
 
@@ -62,6 +66,7 @@ export async function actualizarTaller(
   });
 
   revalidatePath("/panel/config");
+  revalidateTag(TAG_TALLERES);
   return { ok: true };
 }
 
@@ -78,37 +83,45 @@ export async function actualizarLogo(
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Elegí una imagen" };
   }
-  if (!file.type.startsWith("image/")) {
-    return { error: "El archivo debe ser una imagen (PNG, JPG, SVG…)" };
+  if (!mimeAceptado(file.type)) {
+    return { error: "El archivo debe ser una imagen (PNG, JPG, WEBP, SVG…)" };
   }
   if (file.size > 1024 * 1024) {
     return { error: "La imagen no puede superar 1 MB" };
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const dataUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
-
-  await prisma.taller.update({
+  const anterior = await prisma.taller.findUnique({
     where: { id: tallerId },
-    data: { logoUrl: dataUrl },
+    select: { logoUrl: true },
   });
 
+  // El binario va al disco; en la base queda solo la clave.
+  const clave = await guardarImagen("logos", file);
+  await prisma.taller.update({
+    where: { id: tallerId },
+    data: { logoUrl: clave },
+  });
+  if (anterior?.logoUrl) await borrarImagen(anterior.logoUrl);
+
   revalidatePath("/panel/config");
-  revalidatePath("/");
-  revalidatePath("/talleres");
+  revalidateTag(TAG_TALLERES);
   return { ok: true };
 }
 
 /** Quita el logo del taller. */
 export async function quitarLogo(tallerId: string): Promise<Result> {
   await autorizarAdmin(tallerId);
+  const anterior = await prisma.taller.findUnique({
+    where: { id: tallerId },
+    select: { logoUrl: true },
+  });
   await prisma.taller.update({
     where: { id: tallerId },
     data: { logoUrl: null },
   });
+  if (anterior?.logoUrl) await borrarImagen(anterior.logoUrl);
   revalidatePath("/panel/config");
-  revalidatePath("/");
-  revalidatePath("/talleres");
+  revalidateTag(TAG_TALLERES);
   return { ok: true };
 }
 
@@ -173,6 +186,7 @@ export async function crearTallerParaUsuario(
 
   revalidatePath("/panel");
   revalidatePath("/mi-cuenta");
+  revalidateTag(TAG_TALLERES);
   return { ok: true };
 }
 
@@ -279,5 +293,30 @@ export async function eliminarServicio(servicioId: string): Promise<Result> {
 
   await prisma.servicio.delete({ where: { id: servicioId } });
   revalidatePath("/panel/config");
+  return { ok: true };
+}
+
+/**
+ * Elige el taller activo para quien es staff de más de uno.
+ * Se guarda en una cookie y lo lee `getTallerDelUsuario`.
+ */
+export async function elegirTaller(tallerId: string): Promise<Result> {
+  const session = await auth();
+  if (!session?.user) return { error: "No autenticado" };
+
+  const member = await prisma.tallerMember.findUnique({
+    where: { userId_tallerId: { userId: session.user.id, tallerId } },
+    select: { id: true },
+  });
+  if (!member) return { error: "No pertenecés a ese taller." };
+
+  (await cookies()).set(COOKIE_TALLER, tallerId, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+
+  revalidatePath("/panel");
   return { ok: true };
 }

@@ -1,26 +1,13 @@
 "use server";
 
-import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { sendEmail, emailTemplate } from "@/lib/mailer";
+import { hashToken, enviarEmailRecuperacion } from "@/lib/password-reset";
+import { consumir, mensajeEspera } from "@/lib/rate-limit";
+import { ipDelCliente } from "@/lib/ip";
 
 export type ActionState = { error?: string; ok?: boolean } | undefined;
-
-const TOKEN_TTL_MIN = 60; // el link vale 1 hora
-
-function hashToken(raw: string): string {
-  return crypto.createHash("sha256").update(raw).digest("hex");
-}
-
-function baseUrl(): string {
-  return (
-    process.env.NEXTAUTH_URL ??
-    process.env.AUTH_URL ??
-    "http://localhost:3000"
-  ).replace(/\/$/, "");
-}
 
 /**
  * Solicita el reset: si el email existe, genera un token y manda el link.
@@ -36,40 +23,17 @@ export async function solicitarReset(
   if (!parsed.success) return { error: parsed.error.errors[0].message };
 
   const email = parsed.data.email.toLowerCase();
+
+  // Límite por email y por IP: sin esto se puede usar el formulario para
+  // bombardear la casilla de cualquier persona registrada.
+  const porEmail = consumir(`reset:email:${email}`, 3, 15 * 60_000);
+  if (!porEmail.permitido) return { error: mensajeEspera(porEmail) };
+  const porIp = consumir(`reset:ip:${await ipDelCliente()}`, 10, 15 * 60_000);
+  if (!porIp.permitido) return { error: mensajeEspera(porIp) };
+
   const user = await prisma.user.findUnique({ where: { email } });
-
   if (user) {
-    // Invalida tokens anteriores sin usar
-    await prisma.passwordResetToken.deleteMany({
-      where: { userId: user.id, usadoEn: null },
-    });
-
-    const rawToken = crypto.randomBytes(32).toString("hex");
-    await prisma.passwordResetToken.create({
-      data: {
-        userId: user.id,
-        tokenHash: hashToken(rawToken),
-        expiraEn: new Date(Date.now() + TOKEN_TTL_MIN * 60 * 1000),
-      },
-    });
-
-    const link = `${baseUrl()}/recuperar/${rawToken}`;
-
-    await sendEmail({
-      to: email,
-      subject: "Recuperá tu contraseña · Autocontrol",
-      html: emailTemplate(
-        "Recuperá tu contraseña",
-        `Recibimos un pedido para restablecer tu contraseña. Entrá al siguiente enlace (vence en 1 hora):<br><br>
-         <a href="${link}" style="color:#2b4b80;font-weight:600;">Restablecer contraseña</a><br><br>
-         Si no fuiste vos, ignorá este mensaje.`,
-      ),
-    });
-
-    // En desarrollo (sin SMTP) mostramos el link en la consola para poder probar.
-    if (!process.env.SMTP_HOST) {
-      console.log(`\n🔑 [RESET] Link para ${email}:\n   ${link}\n`);
-    }
+    await enviarEmailRecuperacion(user.id, email);
   }
 
   return { ok: true };
@@ -78,7 +42,7 @@ export async function solicitarReset(
 const resetSchema = z
   .object({
     token: z.string().min(1),
-    password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
+    password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
     confirmar: z.string(),
   })
   .refine((d) => d.password === d.confirmar, {
@@ -99,6 +63,11 @@ export async function resetearPassword(
   if (!parsed.success) return { error: parsed.error.errors[0].message };
 
   const { token, password } = parsed.data;
+
+  // Evita que se prueben tokens al voleo desde una misma IP.
+  const porIp = consumir(`reset-apply:${await ipDelCliente()}`, 10, 15 * 60_000);
+  if (!porIp.permitido) return { error: mensajeEspera(porIp) };
+
   const registro = await prisma.passwordResetToken.findUnique({
     where: { tokenHash: hashToken(token) },
   });

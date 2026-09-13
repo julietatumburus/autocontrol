@@ -36,6 +36,10 @@ services:
       SEED_ON_START: "true"
     ports:
       - "3000:3000"
+    volumes:
+      # Fotos de avance y logos: viven en disco, no en Postgres.
+      - autocontrol_uploads:/app/uploads
 
 volumes:
   autocontrol_pgdata:
+  autocontrol_uploads:

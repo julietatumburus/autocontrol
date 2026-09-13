@@ -2,9 +2,12 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { avisarTurno } from "@/lib/turnos-notif";
+import { consumir, mensajeEspera } from "@/lib/rate-limit";
+import { ipDelCliente } from "@/lib/ip";
 import {
   fechaHoraInstant,
   slotsDisponibles,
@@ -12,6 +15,16 @@ import {
 } from "@/lib/agenda";
 
 type Result = { error?: string; ok?: boolean };
+
+/**
+ * Clave del horario mientras el turno lo ocupa. La columna `slotKey` es UNIQUE:
+ * si dos personas eligen el mismo horario a la vez, la base rechaza la segunda
+ * en vez de aceptar las dos (antes se consultaba y despues se insertaba, con
+ * una ventana en el medio donde entraban ambas).
+ */
+function slotKeyDe(tallerId: string, instante: Date): string {
+  return `${tallerId}|${instante.toISOString()}`;
+}
 
 const crearSchema = z.object({
   tallerId: z.string().min(1),
@@ -35,6 +48,17 @@ export async function crearTurno(
   const d = parsed.data;
   const session = await auth();
 
+  // Sin limite, un bot puede reservar toda la agenda de un taller con datos
+  // inventados: el turno no exige cuenta ni verifica el email.
+  const porIp = consumir(`turno:ip:${await ipDelCliente()}`, 5, 60 * 60_000);
+  if (!porIp.permitido) return { error: mensajeEspera(porIp) };
+  const porEmail = consumir(
+    `turno:email:${d.email.toLowerCase()}`,
+    3,
+    60 * 60_000,
+  );
+  if (!porEmail.permitido) return { error: mensajeEspera(porEmail) };
+
   const taller = await prisma.taller.findUnique({ where: { id: d.tallerId } });
   if (!taller || taller.estado !== "ACTIVO" || !taller.agendaActiva) {
     return { error: "Este taller no está tomando turnos." };
@@ -54,31 +78,34 @@ export async function crearTurno(
     return { error: "Horario fuera del rango de atención." };
   }
 
-  // El slot debe seguir libre
-  const ocupado = await prisma.turno.findFirst({
-    where: {
-      tallerId: d.tallerId,
-      fechaHora: instante,
-      estado: { not: "CANCELADO" },
-    },
-    select: { id: true },
-  });
-  if (ocupado) return { error: "Ese horario ya fue tomado, elegí otro." };
-
-  const turno = await prisma.turno.create({
-    data: {
-      tallerId: d.tallerId,
-      clienteId: session?.user?.id ?? null,
-      tipo: d.tipo,
-      fechaHora: instante,
-      duracionMin: taller.agendaDuracionMin,
-      nombre: d.nombre,
-      email: d.email.toLowerCase(),
-      telefono: d.telefono || null,
-      vehiculo: d.vehiculo || null,
-      motivo: d.motivo || null,
-    },
-  });
+  // El slot debe seguir libre. La verificación real la hace el índice único
+  // sobre `slotKey`; esto es solo para dar un mensaje lindo en el caso común.
+  let turno;
+  try {
+    turno = await prisma.turno.create({
+      data: {
+        tallerId: d.tallerId,
+        clienteId: session?.user?.id ?? null,
+        tipo: d.tipo,
+        fechaHora: instante,
+        slotKey: slotKeyDe(d.tallerId, instante),
+        duracionMin: taller.agendaDuracionMin,
+        nombre: d.nombre,
+        email: d.email.toLowerCase(),
+        telefono: d.telefono || null,
+        vehiculo: d.vehiculo || null,
+        motivo: d.motivo || null,
+      },
+    });
+  } catch (err) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
+      return { error: "Ese horario ya fue tomado, elegí otro." };
+    }
+    throw err;
+  }
 
   await avisarTurno(turno.id, "alta");
 
@@ -118,7 +145,15 @@ export async function cambiarEstadoTurno(
   estado: "CONFIRMADO" | "CANCELADO" | "COMPLETADO",
 ): Promise<Result> {
   await autorizarStaffTurno(turnoId);
-  await prisma.turno.update({ where: { id: turnoId }, data: { estado } });
+  await prisma.turno.update({
+    where: { id: turnoId },
+    data: {
+      estado,
+      // Al cancelar se libera el horario: `slotKey` en NULL deja de ocupar
+      // el índice único y alguien más puede reservarlo.
+      ...(estado === "CANCELADO" ? { slotKey: null } : {}),
+    },
+  });
   revalidatePath("/panel/agenda");
   revalidatePath("/mi-cuenta/turnos");
   return { ok: true };
@@ -175,13 +210,16 @@ export async function marcarOcupado(
       tipo: "OCUPADO" as const,
       estado: "CONFIRMADO" as const,
       fechaHora: inst,
+      slotKey: slotKeyDe(tallerId, inst),
       duracionMin: taller.agendaDuracionMin,
       nombre: "Ocupado",
       email: "ocupado@interno",
     }));
 
   if (data.length === 0) return { error: "Ese horario ya estaba ocupado." };
-  await prisma.turno.createMany({ data });
+  // `skipDuplicates`: si alguien reservó un horario mientras se armaba la
+  // lista, se bloquean los demás en vez de fallar todo el pedido.
+  await prisma.turno.createMany({ data, skipDuplicates: true });
 
   revalidatePath("/panel/agenda");
   revalidatePath(`/talleres/${taller.slug}/turno`);
@@ -207,7 +245,7 @@ export async function cancelarMiTurno(turnoId: string): Promise<Result> {
   }
   await prisma.turno.update({
     where: { id: turnoId },
-    data: { estado: "CANCELADO" },
+    data: { estado: "CANCELADO", slotKey: null },
   });
   revalidatePath("/mi-cuenta/turnos");
   revalidatePath("/panel/agenda");

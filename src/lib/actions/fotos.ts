@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { notificarCliente } from "@/lib/notificaciones";
+import { guardarImagen, borrarImagen, mimeAceptado } from "@/lib/storage";
 
 type Result = { error?: string; ok?: boolean };
 
@@ -46,18 +47,29 @@ export async function subirFotos(
 
   if (files.length === 0) return { error: "Elegí al menos una foto" };
 
-  const data: { ordenId: string; url: string; descripcion: string | null; etapaNombre: string | null }[] = [];
+  // Validamos todo antes de escribir nada, para no dejar archivos sueltos
+  // en disco si una de las fotos del lote no pasa.
   for (const file of files) {
-    if (!file.type.startsWith("image/")) {
-      return { error: "Todos los archivos deben ser imágenes" };
+    if (!mimeAceptado(file.type)) {
+      return { error: `Formato de imagen no soportado (“${file.name}”)` };
     }
     if (file.size > MAX_BYTES) {
       return { error: `Cada foto no puede superar 4 MB (“${file.name}”)` };
     }
-    const buffer = Buffer.from(await file.arrayBuffer());
+  }
+
+  // El binario va al disco y en la base queda solo la clave: antes cada foto
+  // se guardaba como data URL y ocupaba ~5,4 MB por fila en Postgres.
+  const data: {
+    ordenId: string;
+    url: string;
+    descripcion: string | null;
+    etapaNombre: string | null;
+  }[] = [];
+  for (const file of files) {
     data.push({
       ordenId,
-      url: `data:${file.type};base64,${buffer.toString("base64")}`,
+      url: await guardarImagen("fotos", file),
       descripcion: descripcion || null,
       etapaNombre,
     });
@@ -88,6 +100,7 @@ export async function eliminarFoto(fotoId: string): Promise<Result> {
   await autorizarStaff(foto.orden.tallerId);
 
   await prisma.ordenFoto.delete({ where: { id: fotoId } });
+  await borrarImagen(foto.url);
 
   revalidatePath(`/panel/ordenes/${foto.orden.id}`);
   revalidatePath(`/mi-cuenta/ordenes/${foto.orden.id}`);

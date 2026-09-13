@@ -1,13 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import { leerImagen } from "@/lib/storage";
 
-// Sirve el logo del taller como imagen binaria cacheable (en vez de base64
-// embebido en cada página donde aparece).
-
-function parseDataUrl(u: string): { mime: string; buf: Buffer } | null {
-  const m = /^data:([^;]+);base64,(.*)$/s.exec(u);
-  if (!m) return null;
-  return { mime: m[1], buf: Buffer.from(m[2], "base64") };
-}
+// Sirve el logo del taller. Es público a propósito: aparece en la landing y en
+// el perfil público del taller, así que se puede cachear en cachés compartidas.
 
 export async function GET(
   _req: Request,
@@ -20,13 +15,13 @@ export async function GET(
   });
   if (!taller?.logoUrl) return new Response("Sin logo", { status: 404 });
 
-  const parsed = parseDataUrl(taller.logoUrl);
-  if (!parsed) return Response.redirect(taller.logoUrl);
+  const imagen = await leerImagen(taller.logoUrl);
+  if (!imagen) return new Response("Sin logo", { status: 404 });
 
-  return new Response(new Uint8Array(parsed.buf), {
+  return new Response(new Uint8Array(imagen.buf), {
     headers: {
-      "Content-Type": parsed.mime,
-      // El logo puede cambiar al re-subir → caché moderada con revalidación.
+      "Content-Type": imagen.mime,
+      // El logo puede cambiar al re-subirlo → caché moderada con revalidación.
       "Cache-Control": "public, max-age=600, stale-while-revalidate=3600",
     },
   });

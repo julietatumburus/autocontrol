@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { getTalleresDestacados } from "@/lib/talleres-publicos";
 import { Card, Badge } from "@/components/ui";
 import { TallerLogo } from "@/components/TallerLogo";
 import {
@@ -12,15 +12,12 @@ import {
   ArrowRightIcon,
 } from "@/components/icons";
 
+// La página no se puede prerenderizar (el nav público lee la sesión), pero la
+// consulta de talleres sí se cachea: ver src/lib/talleres-publicos.ts
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const talleres = await prisma.taller.findMany({
-    where: { estado: "ACTIVO" },
-    include: { _count: { select: { ordenes: true, servicios: true } } },
-    orderBy: { creadoEn: "desc" },
-    take: 12,
-  });
+  const talleres = await getTalleresDestacados();
 
   return (
     <div className="bg-white">

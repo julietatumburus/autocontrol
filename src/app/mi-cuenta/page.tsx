@@ -52,9 +52,21 @@ export default async function MiCuentaPage() {
       </div>
 
       {ordenes.length === 0 ? (
-        <Card className="text-center text-slate-500">
-          Todavía no tenés órdenes. Cuando un taller registre tu vehículo, vas a
-          verlo acá.
+        <Card className="space-y-3 text-center text-slate-500">
+          <p>
+            Todavía no tenés órdenes. Cuando un taller registre tu vehículo, vas
+            a verlo acá.
+          </p>
+          <p className="text-sm">
+            También podés{" "}
+            <Link
+              href="/talleres"
+              className="font-medium text-brand-600 hover:underline"
+            >
+              buscar un taller
+            </Link>{" "}
+            y sacar un turno.
+          </p>
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">

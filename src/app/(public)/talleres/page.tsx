@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { getTalleresPublicos } from "@/lib/talleres-publicos";
 import { Card, Badge } from "@/components/ui";
 import { TallerLogo } from "@/components/TallerLogo";
 import { MapPinIcon, SearchIcon } from "@/components/icons";
-import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -14,19 +13,8 @@ export default async function TalleresPage({
 }) {
   const q = (await searchParams).q?.trim() ?? "";
 
-  const where: Prisma.TallerWhereInput = { estado: "ACTIVO" };
-  if (q) {
-    where.OR = [
-      { nombre: { contains: q, mode: "insensitive" } },
-      { direccion: { contains: q, mode: "insensitive" } },
-    ];
-  }
-
-  const talleres = await prisma.taller.findMany({
-    where,
-    include: { _count: { select: { servicios: true, ordenes: true } } },
-    orderBy: { nombre: "asc" },
-  });
+  // Sin búsqueda el resultado sale de caché; con búsqueda va a la base.
+  const talleres = await getTalleresPublicos(q);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12">

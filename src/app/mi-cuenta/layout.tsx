@@ -21,6 +21,10 @@ export default async function CuentaLayout({
     getTallerDelUsuario(session.user.id),
   ]);
 
+  // El super admin también puede ser cliente de un taller: usa esta misma
+  // sección con sus propias órdenes y turnos, y vuelve a /admin desde acá.
+  const esSuperAdmin = session.user.role === "SUPER_ADMIN";
+
   const tabs: TabItem[] = [
     { href: "/mi-cuenta", label: "Órdenes", icon: "ordenes", exact: true },
     { href: "/mi-cuenta/turnos", label: "Turnos", icon: "turnos" },
@@ -29,6 +33,9 @@ export default async function CuentaLayout({
   ];
   if (membership) {
     tabs.push({ href: "/panel", label: "Taller", icon: "taller" });
+  }
+  if (esSuperAdmin) {
+    tabs.push({ href: "/admin", label: "Admin", icon: "admin" });
   }
 
   return (
@@ -75,6 +82,14 @@ export default async function CuentaLayout({
                 className="shrink-0 whitespace-nowrap rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
               >
                 Mi taller
+              </Link>
+            )}
+            {esSuperAdmin && (
+              <Link
+                href="/admin"
+                className="shrink-0 whitespace-nowrap rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
+              >
+                Super admin
               </Link>
             )}
           </nav>

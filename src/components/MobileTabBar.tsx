@@ -10,6 +10,7 @@ import {
   WrenchIcon,
   LayoutIcon,
   SettingsIcon,
+  ShieldCheckIcon,
 } from "@/components/icons";
 
 const ICONS = {
@@ -20,6 +21,7 @@ const ICONS = {
   talleres: WrenchIcon,
   resumen: LayoutIcon,
   taller: SettingsIcon,
+  admin: ShieldCheckIcon,
 } as const;
 
 export type TabItem = {

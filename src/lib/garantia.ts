@@ -16,8 +16,19 @@ export function estadoGarantia(
   ahora: Date = new Date(),
 ): EstadoGarantia {
   const inicio = new Date(entregadaEn);
+
+  // `setMonth` desborda cuando el mes destino es más corto: 31/01 + 1 mes daba
+  // 03/03. Recortamos al último día del mes destino (28/02, 30/04, etc.).
   const fin = new Date(inicio);
+  const diaOriginal = inicio.getDate();
+  fin.setDate(1);
   fin.setMonth(fin.getMonth() + meses);
+  const ultimoDiaDelMes = new Date(
+    fin.getFullYear(),
+    fin.getMonth() + 1,
+    0,
+  ).getDate();
+  fin.setDate(Math.min(diaOriginal, ultimoDiaDelMes));
 
   const total = fin.getTime() - inicio.getTime();
   const transcurrido = ahora.getTime() - inicio.getTime();

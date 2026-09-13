@@ -31,6 +31,12 @@ Abrí http://localhost:3000
 DATABASE_URL="postgresql://postgres:autocontrol@localhost:5433/autocontrol?schema=public"
 ```
 
+## 🧪 Tests
+```bash
+npm test                                    # lógica pura, sin base
+npx tsx scripts/verificar-concurrencia.ts   # necesita Postgres levantado
+```
+
 ## 🔁 Resetear los datos demo
 ```bash
 npx prisma db push --force-reset --skip-generate
