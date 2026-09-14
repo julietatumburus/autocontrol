@@ -5,6 +5,8 @@ import {
   puedeModificarItems,
   puedeCobrar,
   puedeEntregar,
+  puedeEditarDatos,
+  puedeReasignarCliente,
 } from "./orden-estado";
 
 describe("estaCerrada", () => {
@@ -83,6 +85,43 @@ describe("puedeCobrar", () => {
 
   it("no vuelve a cobrar una orden ya pagada", () => {
     expect(puedeCobrar({ ...base, estado: "PAGADA" }).ok).toBe(false);
+  });
+});
+
+describe("puedeEditarDatos", () => {
+  it("deja corregir datos en cualquier momento del trabajo", () => {
+    expect(puedeEditarDatos("ABIERTA").ok).toBe(true);
+    expect(puedeEditarDatos("LISTA").ok).toBe(true);
+  });
+
+  it("deja corregir incluso después de cobrar o entregar", () => {
+    // El comprobante guarda su propio snapshot, así que arreglar una patente
+    // mal tipeada no altera el papel ya emitido.
+    expect(puedeEditarDatos("PAGADA").ok).toBe(true);
+    expect(puedeEditarDatos("ENTREGADA").ok).toBe(true);
+  });
+
+  it("no deja tocar una orden cancelada", () => {
+    expect(puedeEditarDatos("CANCELADA").ok).toBe(false);
+  });
+});
+
+describe("puedeReasignarCliente", () => {
+  it("permite mover la orden mientras no se cobró", () => {
+    expect(puedeReasignarCliente("ABIERTA").ok).toBe(true);
+    expect(puedeReasignarCliente("LISTA").ok).toBe(true);
+  });
+
+  it("no mueve de cliente una orden ya cobrada", () => {
+    // Hay un comprobante emitido a nombre de esa persona.
+    const r = puedeReasignarCliente("PAGADA");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.motivo).toMatch(/cobrada/i);
+  });
+
+  it("tampoco una entregada ni una cancelada", () => {
+    expect(puedeReasignarCliente("ENTREGADA").ok).toBe(false);
+    expect(puedeReasignarCliente("CANCELADA").ok).toBe(false);
   });
 });
 

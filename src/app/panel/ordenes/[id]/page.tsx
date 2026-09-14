@@ -19,6 +19,7 @@ import ItemsManager from "./ItemsManager";
 import RegistrarPago from "./RegistrarPago";
 import AccionesOrden from "./AccionesOrden";
 import EnviarPresupuesto from "./EnviarPresupuesto";
+import EditarOrden from "./EditarOrden";
 
 export const dynamic = "force-dynamic";
 
@@ -108,6 +109,26 @@ export default async function OrdenDetallePage({
           </p>
         </Card>
       </div>
+
+      {orden.estado !== "CANCELADA" && (
+        <EditarOrden
+          datos={{
+            ordenId: orden.id,
+            clienteNombre: orden.cliente.nombre,
+            clienteEmail: orden.cliente.email,
+            clienteTelefono: orden.cliente.telefono ?? "",
+            marca: orden.vehiculo.marca,
+            modelo: orden.vehiculo.modelo,
+            anio: orden.vehiculo.anio ? String(orden.vehiculo.anio) : "",
+            patente: orden.vehiculo.patente,
+            color: orden.vehiculo.color ?? "",
+            descripcionProblema: orden.descripcionProblema ?? "",
+          }}
+          puedeCambiarCliente={
+            orden.estado !== "PAGADA" && orden.estado !== "ENTREGADA"
+          }
+        />
+      )}
 
       {orden.descripcionProblema && (
         <Card>

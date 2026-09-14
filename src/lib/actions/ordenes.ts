@@ -15,6 +15,8 @@ import {
   puedeModificarItems,
   puedeCobrar,
   puedeEntregar,
+  puedeEditarDatos,
+  puedeReasignarCliente,
 } from "@/lib/orden-estado";
 import { formatMoney } from "@/lib/utils";
 
@@ -220,6 +222,166 @@ export async function crearOrden(
     mensaje: esClienteNuevo
       ? `Cliente nuevo creado. Le enviamos un email a ${email} para que defina su contraseña.`
       : undefined,
+  };
+}
+
+const editarOrdenSchema = z.object({
+  ordenId: z.string().min(1),
+  clienteNombre: z.string().trim().min(2, "Ingresá el nombre del cliente"),
+  clienteEmail: z.string().email("Email inválido"),
+  clienteTelefono: z.string().optional(),
+  marca: z.string().trim().min(1, "Ingresá la marca"),
+  modelo: z.string().trim().min(1, "Ingresá el modelo"),
+  anio: z.string().optional(),
+  patente: z.string().trim().min(1, "Ingresá la patente"),
+  color: z.string().optional(),
+  descripcionProblema: z.string().optional(),
+});
+
+/**
+ * Corrige los datos de una orden ya creada: vehículo, problema reportado y
+ * datos del cliente. Antes un error de tipeo al dar el alta quedaba fijo.
+ *
+ * Si cambia el email, la orden se reasigna a la cuenta de ese email (se crea
+ * si no existe) en vez de pisarle el email al cliente actual: ese campo es su
+ * usuario para entrar, y cambiarlo dejaría afuera a una persona real.
+ */
+export async function editarOrden(
+  _prev: Result | undefined,
+  formData: FormData,
+): Promise<Result> {
+  const parsed = editarOrdenSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.errors[0].message };
+  const d = parsed.data;
+
+  const orden = await prisma.ordenDeTrabajo.findUnique({
+    where: { id: d.ordenId },
+    include: { cliente: true, vehiculo: true, taller: { select: { nombre: true } } },
+  });
+  if (!orden) return { error: "Orden no encontrada" };
+  await autorizarStaff(orden.tallerId);
+
+  const permisoEdicion = puedeEditarDatos(orden.estado);
+  if (!permisoEdicion.ok) return { error: permisoEdicion.motivo };
+
+  const emailNuevo = d.clienteEmail.toLowerCase();
+  const patente = d.patente.toUpperCase().replace(/\s+/g, "");
+  const anio = d.anio ? Number(d.anio) : null;
+  if (anio !== null && (!Number.isInteger(anio) || anio < 1900 || anio > 2100)) {
+    return { error: "Año inválido" };
+  }
+
+  const reasignar = emailNuevo !== orden.cliente.email;
+  if (reasignar) {
+    const permisoReasignar = puedeReasignarCliente(orden.estado);
+    if (!permisoReasignar.ok) return { error: permisoReasignar.motivo };
+  }
+
+  let clienteNuevoId: string | null = null;
+  let avisarAlCliente = false;
+
+  await prisma.$transaction(async (tx) => {
+    let clienteId = orden.clienteId;
+
+    if (reasignar) {
+      const existente = await tx.user.findUnique({ where: { email: emailNuevo } });
+      if (existente) {
+        // Cuenta de otra persona: sus datos son suyos, no los pisamos.
+        clienteId = existente.id;
+      } else {
+        const creado = await tx.user.create({
+          data: {
+            email: emailNuevo,
+            nombre: d.clienteNombre,
+            telefono: d.clienteTelefono || null,
+            passwordHash: await bcrypt.hash(
+              crypto.randomBytes(32).toString("hex"),
+              10,
+            ),
+            role: "CLIENTE",
+          },
+        });
+        clienteId = creado.id;
+        clienteNuevoId = creado.id;
+      }
+      avisarAlCliente = true;
+    } else {
+      // Mismo cliente: corregimos su nombre y teléfono.
+      await tx.user.update({
+        where: { id: clienteId },
+        data: {
+          nombre: d.clienteNombre,
+          telefono: d.clienteTelefono || null,
+        },
+      });
+    }
+
+    // El vehículo canónico de ese cliente para esa patente. Si cambió la
+    // patente o el cliente, la orden pasa a apuntar al que corresponde.
+    const vehiculo = await tx.vehiculo.upsert({
+      where: { clienteId_patente: { clienteId, patente } },
+      create: {
+        clienteId,
+        marca: d.marca,
+        modelo: d.modelo,
+        anio,
+        patente,
+        color: d.color || null,
+      },
+      update: {
+        marca: d.marca,
+        modelo: d.modelo,
+        anio,
+        color: d.color || null,
+      },
+    });
+
+    await tx.ordenDeTrabajo.update({
+      where: { id: d.ordenId },
+      data: {
+        clienteId,
+        vehiculoId: vehiculo.id,
+        descripcionProblema: d.descripcionProblema || null,
+      },
+    });
+
+    // El vehículo anterior queda sin uso si ninguna orden lo referencia.
+    if (vehiculo.id !== orden.vehiculoId) {
+      const enUso = await tx.ordenDeTrabajo.count({
+        where: { vehiculoId: orden.vehiculoId },
+      });
+      if (enUso === 0) {
+        await tx.vehiculo.delete({ where: { id: orden.vehiculoId } });
+      }
+    }
+  });
+
+  // Avisos fuera de la transacción (el SMTP no debe abortar la corrección).
+  if (clienteNuevoId) {
+    await enviarEmailAltaCliente(clienteNuevoId, emailNuevo, orden.taller.nombre);
+  }
+  if (avisarAlCliente) {
+    const destino = await prisma.ordenDeTrabajo.findUnique({
+      where: { id: d.ordenId },
+      select: { clienteId: true },
+    });
+    if (destino) {
+      await notificarCliente({
+        userId: destino.clienteId,
+        ordenId: d.ordenId,
+        tipo: "ORDEN_CREADA",
+        titulo: "Tenés una orden en seguimiento",
+        mensaje: `${orden.taller.nombre} asoció a tu cuenta la reparación de un ${d.marca} ${d.modelo} (${patente}). Ya podés seguirla desde Autocontrol.`,
+      });
+    }
+  }
+
+  revalidatePath(`/panel/ordenes/${d.ordenId}`);
+  revalidatePath("/panel/ordenes");
+  revalidatePath("/mi-cuenta");
+  return {
+    ok: true,
+    mensaje: reasignar ? "Datos guardados y orden reasignada al nuevo cliente." : undefined,
   };
 }
 

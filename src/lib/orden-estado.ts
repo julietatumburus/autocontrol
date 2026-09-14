@@ -62,6 +62,30 @@ export function puedeCobrar(orden: {
   return OK;
 }
 
+/** ¿Se pueden corregir los datos cargados (vehículo, problema, cliente)? */
+export function puedeEditarDatos(estado: OrdenEstado): Permiso {
+  if (estado === "CANCELADA") return no("La orden está cancelada.");
+  // Una orden entregada igual admite correcciones: el comprobante guarda su
+  // propio snapshot, así que arreglar una patente mal tipeada no lo altera.
+  return OK;
+}
+
+/**
+ * ¿Se puede pasar la orden a otra cuenta de cliente?
+ *
+ * Solo antes de cobrar: después del pago hay un comprobante emitido a nombre
+ * de esa persona, y moverla dejaría el papel apuntando a otro lado.
+ */
+export function puedeReasignarCliente(estado: OrdenEstado): Permiso {
+  if (estado === "CANCELADA") return no("La orden está cancelada.");
+  if (estado === "PAGADA" || estado === "ENTREGADA") {
+    return no(
+      "La orden ya fue cobrada: no se puede cambiar de cliente. Corregí el resto de los datos y contactá al soporte si el cliente está equivocado.",
+    );
+  }
+  return OK;
+}
+
 /** ¿Se puede marcar como entregada? Recién después de cobrar. */
 export function puedeEntregar(estado: OrdenEstado): Permiso {
   if (estado === "ENTREGADA") return no("La orden ya fue entregada.");

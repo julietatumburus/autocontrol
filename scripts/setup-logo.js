@@ -1,5 +1,21 @@
 // Genera el logo de la app + favicon + íconos del PWA desde el archivo de marca.
-const sharp = require("sharp");
+// `sharp` ya no figura en devDependencies: teniamos un pin (^0.35.2) por debajo
+// de lo que pide next (^0.35.4), y ese conflicto ensucio el lockfile. Igual
+// sigue disponible, porque next la trae como dependencia opcional, asi que
+// este script funciona sin instalar nada. El try/catch es por si algun dia
+// next deja de arrastrarla.
+let sharp;
+try {
+  sharp = require("sharp");
+} catch {
+  console.error("");
+  console.error("No se encontro 'sharp', que este script usa para generar los iconos.");
+  console.error("Instalala al vuelo y sacala despues:");
+  console.error("");
+  console.error("    npm i -D sharp && node scripts/setup-logo.js && npm uninstall sharp");
+  console.error("");
+  process.exit(1);
+}
 const path = require("path");
 
 const SRC = "C:/Users/nicor/Downloads/file_000000003918720e898df5a9f0f20488.png";

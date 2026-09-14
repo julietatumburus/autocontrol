@@ -55,11 +55,17 @@ npm test        # vitest: lógica pura (agenda, garantía, límites, estados de 
 npm run lint    # eslint (flat config)
 ```
 
-Las verificaciones que necesitan Postgres levantado (numeración concurrente,
-doble reserva de turnos, deduplicación de vehículos) van aparte:
+Las verificaciones que necesitan Postgres levantado van aparte:
 ```bash
-npx tsx scripts/verificar-concurrencia.ts
+npx tsx scripts/verificar-concurrencia.ts    # numeración, turnos, vehículos
+npx tsx scripts/verificar-edicion-orden.ts   # edición y reasignación de órdenes
 ```
+
+> **Íconos del PWA:** `scripts/generate-icons.js` y `scripts/setup-logo.js` usan
+> `sharp`, que ya no figura en `devDependencies` (teníamos un pin por debajo de
+> lo que pide Next y ensuciaba el lockfile). Igual está disponible porque Next
+> la trae como dependencia opcional. Si algún día no estuviera, el script te
+> dice cómo instalarla al vuelo.
 
 ### 👤 Usuarios demo (tras el seed)
 Contraseña para todos: **`autocontrol123`**
@@ -204,3 +210,9 @@ Cliente deja el auto → Empleado crea la orden (vehículo + cliente)
   → el cliente paga en el taller → empleado registra el pago
   → se emite el comprobante de servicio
 ```
+
+Si al abrir la orden se cargó algo mal, el botón **Editar datos** del detalle
+corrige vehículo, problema reportado y datos del cliente. Cambiar el email
+**reasigna** la orden a esa cuenta (creándola si no existe) en vez de pisarle
+el email al cliente actual, que es su usuario para entrar. Reasignar solo se
+puede antes de cobrar: después hay un comprobante emitido a nombre de alguien.
