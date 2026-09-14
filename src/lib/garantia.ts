@@ -1,3 +1,5 @@
+import { formatFechaAR } from "@/lib/utils";
+
 // Cálculo del estado de la garantía de una orden entregada.
 
 export type EstadoGarantia = {
@@ -45,11 +47,11 @@ export function estadoGarantia(
   return { vigente, inicio, fin, diasRestantes, diasTotales, progreso };
 }
 
-/** Formatea una fecha como DD/MM/AAAA. */
+/**
+ * Formatea una fecha como DD/MM/AAAA en horario argentino.
+ * Delega en utils para que sea el mismo formato en toda la app y no dependa
+ * de la zona horaria del entorno (ver el comentario de `partesAR`).
+ */
 export function formatFechaCorta(date: Date | string): string {
-  return new Intl.DateTimeFormat("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(date));
+  return formatFechaAR(date);
 }

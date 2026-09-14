@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { cn } from "@/lib/utils";
+import { cn, diaAR, formatHoraAR } from "@/lib/utils";
+import { AR_TZ, hoyAR } from "@/lib/agenda";
 import { Badge, Button, Label, Select } from "@/components/ui";
 import { marcarOcupado, liberarBloqueo } from "@/lib/actions/turnos";
 import TurnoAcciones from "./TurnoAcciones";
@@ -50,9 +51,19 @@ const ESTADO_LABEL: Record<string, string> = {
   COMPLETADO: "Completado",
 };
 
+// Clave de una casilla del calendario. Las casillas son fechas sinteticas
+// (`new Date(anio, mes, dia)`), asi que sus partes locales son estables.
 const clave = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-const hhmm = (iso: string) =>
-  new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+
+// Clave de un turno: es un instante real, y hay que ubicarlo en el dia que le
+// corresponde EN ARGENTINA. Con la zona del entorno, un turno de las 23:00
+// caia al dia siguiente en un servidor en UTC.
+const claveTurno = (iso: string) => {
+  const { anio, mes, dia } = diaAR(iso);
+  return `${anio}-${mes - 1}-${dia}`;
+};
+
+const hhmm = (iso: string) => formatHoraAR(iso);
 const esOcupado = (t: TurnoDTO) => t.tipo === "OCUPADO";
 
 function generarSlots(config: Config): string[] {
@@ -68,10 +79,8 @@ function generarSlots(config: Config): string[] {
   return out;
 }
 
-function hoyStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+// Hoy en Argentina, con el formato que espera un <input type="date">.
+const hoyStr = hoyAR;
 
 export default function AgendaCalendar({
   turnos,
@@ -82,8 +91,13 @@ export default function AgendaCalendar({
   tallerId: string;
   config: Config;
 }) {
-  const hoy = new Date();
-  const [ref, setRef] = useState(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
+  // Todo lo que define "hoy" sale de la hora argentina, no de la del equipo:
+  // asi el servidor y el navegador dibujan el mismo mes y marcan el mismo dia.
+  const hoyPartes = diaAR(new Date());
+  const claveHoy = `${hoyPartes.anio}-${hoyPartes.mes - 1}-${hoyPartes.dia}`;
+  const [ref, setRef] = useState(
+    new Date(hoyPartes.anio, hoyPartes.mes - 1, 1),
+  );
   const [selId, setSelId] = useState<string | null>(null);
 
   // Marcar ocupado
@@ -99,7 +113,7 @@ export default function AgendaCalendar({
   // Agrupar por día
   const porDia = new Map<string, TurnoDTO[]>();
   for (const t of turnos) {
-    const k = clave(new Date(t.fechaHora));
+    const k = claveTurno(t.fechaHora);
     const arr = porDia.get(k);
     if (arr) arr.push(t);
     else porDia.set(k, [t]);
@@ -167,9 +181,11 @@ export default function AgendaCalendar({
           >
             ›
           </button>
-          {(month !== hoy.getMonth() || year !== hoy.getFullYear()) && (
+          {(month !== hoyPartes.mes - 1 || year !== hoyPartes.anio) && (
             <button
-              onClick={() => setRef(new Date(hoy.getFullYear(), hoy.getMonth(), 1))}
+              onClick={() =>
+                setRef(new Date(hoyPartes.anio, hoyPartes.mes - 1, 1))
+              }
               className="ml-1 text-xs font-medium text-brand-600 hover:underline"
             >
               Hoy
@@ -193,7 +209,7 @@ export default function AgendaCalendar({
         {celdas.map((d, i) => {
           if (!d) return <div key={i} className="min-h-[64px] sm:min-h-[92px]" />;
           const items = porDia.get(clave(d)) ?? [];
-          const esHoy = clave(d) === clave(hoy);
+          const esHoy = clave(d) === claveHoy;
           return (
             <div
               key={i}
@@ -266,6 +282,7 @@ export default function AgendaCalendar({
               <div>
                 <p className="text-sm font-medium capitalize text-slate-900">
                   {new Date(sel.fechaHora).toLocaleDateString("es-AR", {
+                    timeZone: AR_TZ,
                     weekday: "long", day: "numeric", month: "long",
                   })}{" "}
                   · {hhmm(sel.fechaHora)}
